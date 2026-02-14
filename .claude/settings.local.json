@@ -17,7 +17,9 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nInitial project setup and Phase 1 foundation\n\n- Initialize Next.js 16 with App Router, TypeScript, Tailwind CSS v4\n- Install dependencies: @supabase/supabase-js, lucide-react, clsx\n- Create comprehensive type system for normalized artifacts across museums\n- Build all museum API normalizers \\(Met, V&A, Cleveland, web scrape\\)\n- Implement Supabase Edge Functions for API proxying \\(4 functions\\)\n- Create localStorage session collection with CRUD operations\n- Build custom hooks: useTheme, useCollection, useSearch, useDebounce\n- Add unified search orchestrator for parallel multi-museum queries\n- Configure remote image domains for museum CDNs\n- Set up dark mode with Tailwind v4 custom variants\n- Create UI primitives: Badge, LoadingSpinner, ErrorMessage, EmptyState, ThemeToggle\n- Build Header component with navigation and collection count\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git push:*)",
       "Bash(gh pr create:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)"
     ]
   }
 }
