@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.firecrawl.dev)",
+      "WebFetch(domain:openaccess-api.clevelandart.org)",
+      "WebFetch(domain:developers.vam.ac.uk)",
+      "WebFetch(domain:data.rijksmuseum.nl)",
+      "Bash(git -C \"C:\\\\Users\\\\skylo\\\\OneDrive\\\\Documents\\\\GitHub\\\\Historical-Reference\\\\.claude\\\\worktrees\\\\keen-shockley\" log --oneline --all)",
+      "WebFetch(domain:collectionapi.metmuseum.org)",
+      "WebFetch(domain:metmuseum.github.io)",
+      "WebFetch(domain:api.vam.ac.uk)",
+      "WebFetch(domain:supabase.com)",
+      "Bash(npx create-next-app:*)",
+      "Bash(npm install:*)",
+      "Bash(npm ls:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
