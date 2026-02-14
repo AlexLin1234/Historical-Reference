@@ -15,7 +15,7 @@ export default function ScrapePage() {
       <div className="mb-8">
         <h1 className="mb-2 text-3xl font-bold">Web Scrape</h1>
         <p className="text-steel dark:text-steel-light">
-          Scrape artifact data from museum pages without public APIs
+          Search and scrape artifact data from famous museums without public APIs
         </p>
       </div>
 

@@ -2,9 +2,11 @@ import type { SearchFilters, SearchResults, AggregatedSearchResults, MuseumSourc
 import { searchCleveland } from './cleveland';
 import { searchVA } from './va';
 import { searchMet, batchFetchMetObjects } from './met';
+import { searchSmithsonian } from './smithsonian';
 import { normalizeClevelandArtwork } from '@/lib/normalizers/cleveland';
 import { normalizeVASearchRecord } from '@/lib/normalizers/va';
 import { normalizeMetObject } from '@/lib/normalizers/met';
+import { normalizeSmithsonianItem } from '@/lib/normalizers/smithsonian';
 import { CATEGORY_MAP, MET_DEPARTMENTS, DEFAULT_PAGE_SIZE } from '@/lib/constants';
 
 async function searchClevelandSource(
@@ -103,6 +105,39 @@ async function searchMetSource(
   };
 }
 
+async function searchSmithsonianSource(
+  filters: SearchFilters,
+  page: number,
+  pageSize: number
+): Promise<SearchResults> {
+  const resp = await searchSmithsonian({
+    query: filters.query,
+    rows: pageSize,
+    start: (page - 1) * pageSize,
+    online_media_only: filters.hasImage,
+  });
+
+  let artifacts = (resp.rows || []).map(normalizeSmithsonianItem);
+
+  // Client-side date filtering
+  if (filters.timePeriod) {
+    artifacts = artifacts.filter((a) => {
+      if (a.dateEarliest === null && a.dateLatest === null) return true;
+      const earliest = a.dateEarliest ?? -Infinity;
+      const latest = a.dateLatest ?? Infinity;
+      return latest >= filters.timePeriod!.startYear && earliest <= filters.timePeriod!.endYear;
+    });
+  }
+
+  return {
+    artifacts,
+    totalResults: resp.rowCount ?? 0,
+    page,
+    pageSize,
+    source: 'smithsonian',
+  };
+}
+
 const SOURCE_SEARCHERS: Record<
   MuseumSource,
   ((f: SearchFilters, p: number, ps: number) => Promise<SearchResults>) | null
@@ -110,6 +145,9 @@ const SOURCE_SEARCHERS: Record<
   cleveland: searchClevelandSource,
   va: searchVASource,
   met: searchMetSource,
+  smithsonian: searchSmithsonianSource,
+  harvard: null,
+  chicago: null,
   scraped: null,
 };
 

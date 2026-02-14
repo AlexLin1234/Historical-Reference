@@ -9,7 +9,7 @@ const DEFAULT_FILTERS: SearchFilters = {
   query: '',
   timePeriod: null,
   category: null,
-  sources: ['met', 'va', 'cleveland'],
+  sources: ['met', 'va', 'cleveland', 'smithsonian'],
   hasImage: true,
 };
 

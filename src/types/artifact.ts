@@ -1,4 +1,4 @@
-export type MuseumSource = 'met' | 'va' | 'cleveland' | 'scraped';
+export type MuseumSource = 'met' | 'va' | 'cleveland' | 'smithsonian' | 'harvard' | 'chicago' | 'scraped';
 
 export interface NormalizedArtifact {
   id: string;

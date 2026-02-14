@@ -20,15 +20,15 @@ export const CATEGORIES: Category[] = [
   { value: 'prints', label: 'Prints & Drawings' },
 ];
 
-export const CATEGORY_MAP: Record<string, { met?: string; va?: string; cleveland?: string }> = {
-  'arms-armor': { met: 'Arms and Armor', va: 'Metalwork', cleveland: 'Arms and Armor' },
-  'textiles': { met: 'Textiles', va: 'Textiles and Fashion', cleveland: 'Textiles' },
-  'ceramics': { met: 'Ceramics', va: 'Ceramics', cleveland: 'Ceramics' },
-  'metalwork': { met: 'Metalwork', va: 'Metalwork', cleveland: 'Metalwork' },
-  'furniture': { met: 'Furniture', va: 'Furniture', cleveland: 'Furniture' },
-  'paintings': { met: 'Paintings', va: 'Paintings', cleveland: 'Paintings' },
-  'sculpture': { met: 'Sculpture', va: 'Sculpture', cleveland: 'Sculpture' },
-  'prints': { met: 'Prints', va: 'Prints & Drawings', cleveland: 'Prints' },
+export const CATEGORY_MAP: Record<string, { met?: string; va?: string; cleveland?: string; smithsonian?: string; harvard?: string; chicago?: string }> = {
+  'arms-armor': { met: 'Arms and Armor', va: 'Metalwork', cleveland: 'Arms and Armor', smithsonian: 'Arms and Armor' },
+  'textiles': { met: 'Textiles', va: 'Textiles and Fashion', cleveland: 'Textiles', smithsonian: 'Textiles' },
+  'ceramics': { met: 'Ceramics', va: 'Ceramics', cleveland: 'Ceramics', smithsonian: 'Ceramics' },
+  'metalwork': { met: 'Metalwork', va: 'Metalwork', cleveland: 'Metalwork', smithsonian: 'Metalwork' },
+  'furniture': { met: 'Furniture', va: 'Furniture', cleveland: 'Furniture', smithsonian: 'Furniture' },
+  'paintings': { met: 'Paintings', va: 'Paintings', cleveland: 'Paintings', chicago: 'Paintings', harvard: 'Paintings' },
+  'sculpture': { met: 'Sculpture', va: 'Sculpture', cleveland: 'Sculpture', harvard: 'Sculpture', chicago: 'Sculpture' },
+  'prints': { met: 'Prints', va: 'Prints & Drawings', cleveland: 'Prints', harvard: 'Prints', chicago: 'Prints' },
 };
 
 export const MET_DEPARTMENTS: Record<string, number> = {
@@ -57,7 +57,62 @@ export const MUSEUM_LABELS: Record<string, string> = {
   met: 'Metropolitan Museum',
   va: 'Victoria & Albert',
   cleveland: 'Cleveland Museum',
+  smithsonian: 'Smithsonian Institution',
+  harvard: 'Harvard Art Museums',
+  chicago: 'Art Institute of Chicago',
   scraped: 'Web Scrape',
 };
+
+// Famous museums for web scraping (no public API)
+export const SCRAPABLE_MUSEUMS = [
+  {
+    name: 'British Museum',
+    baseUrl: 'https://www.britishmuseum.org',
+    searchUrl: 'https://www.britishmuseum.org/collection/search?keyword=',
+    description: '8 million works - Ancient Egypt, Greece, Rome, Medieval Europe',
+  },
+  {
+    name: 'Louvre Museum',
+    baseUrl: 'https://collections.louvre.fr',
+    searchUrl: 'https://collections.louvre.fr/en/recherche?q=',
+    description: '615,000+ works including ancient civilizations',
+  },
+  {
+    name: 'Smithsonian National Museum',
+    baseUrl: 'https://americanhistory.si.edu',
+    searchUrl: 'https://americanhistory.si.edu/search?edan_q=',
+    description: 'American cultural artifacts, military items, textiles',
+  },
+  {
+    name: 'National Gallery (UK)',
+    baseUrl: 'https://www.nationalgallery.org.uk',
+    searchUrl: 'https://www.nationalgallery.org.uk/paintings/search?q=',
+    description: '2,300 paintings from 13th-19th century',
+  },
+  {
+    name: 'Rijksmuseum',
+    baseUrl: 'https://www.rijksmuseum.nl',
+    searchUrl: 'https://www.rijksmuseum.nl/en/search?q=',
+    description: 'Dutch Golden Age art, Rembrandt, decorative arts',
+  },
+  {
+    name: 'Museum of Fine Arts Boston',
+    baseUrl: 'https://collections.mfa.org',
+    searchUrl: 'https://collections.mfa.org/search/Collections?keyword=',
+    description: '500,000+ works - ancient world, textiles, arms & armor',
+  },
+  {
+    name: 'The Wallace Collection',
+    baseUrl: 'https://wallacelive.wallacecollection.org',
+    searchUrl: 'https://wallacelive.wallacecollection.org/eMP/eMuseumPlus',
+    description: 'European arms & armor, medieval to 19th century',
+  },
+  {
+    name: 'Royal Armouries (UK)',
+    baseUrl: 'https://collections.royalarmouries.org',
+    searchUrl: 'https://collections.royalarmouries.org/search?query=',
+    description: 'World-class arms & armor, medieval weapons',
+  },
+];
 
 export const DEFAULT_PAGE_SIZE = 20;

@@ -72,7 +72,7 @@ export function FilterPanel({ filters, onFilterChange }: FilterPanelProps) {
             Museums
           </label>
           <div className="space-y-1">
-            {(['met', 'va', 'cleveland'] as const).map((source) => (
+            {(['met', 'va', 'cleveland', 'smithsonian'] as const).map((source) => (
               <label key={source} className="flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"

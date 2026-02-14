@@ -15,6 +15,10 @@ export default function Home() {
 
   const handleFilterChange = (newFilters: Parameters<typeof setFilters>[0]) => {
     setFilters(newFilters);
+    // Re-run search with updated filters if there's already a query
+    if (filters.query.trim()) {
+      search(newFilters);
+    }
   };
 
   return (
