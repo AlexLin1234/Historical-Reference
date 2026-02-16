@@ -1,4 +1,4 @@
-const SMITHSONIAN_API_KEY = process.env.NEXT_PUBLIC_SMITHSONIAN_API_KEY || 'DEMO_KEY';
+import { getSupabase } from '@/lib/supabase';
 
 interface SmithsonianSearchParams {
   query: string;
@@ -42,44 +42,27 @@ interface SmithsonianSearchResponse {
 }
 
 export async function searchSmithsonian(params: SmithsonianSearchParams): Promise<SmithsonianSearchResponse> {
-  const searchParams = new URLSearchParams({
-    q: params.query,
-    rows: String(params.rows || 20),
-    start: String(params.start || 0),
+  const { data, error } = await getSupabase().functions.invoke('smithsonian', {
+    body: {
+      action: 'search',
+      query: params.query,
+      rows: params.rows || 20,
+      start: params.start || 0,
+      online_media_only: params.online_media_only,
+    },
   });
 
-  if (params.online_media_only) {
-    searchParams.append('online_media_type', 'Images');
-  }
-
-  const response = await fetch(
-    `https://api.si.edu/openaccess/api/v1.0/search?${searchParams.toString()}&api_key=${SMITHSONIAN_API_KEY}`,
-    {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Smithsonian API error: ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  return data.response;
+  if (error) throw new Error(`Smithsonian search failed: ${error.message}`);
+  if (!data.success) throw new Error(data.error || 'Smithsonian search failed');
+  return data.data;
 }
 
 export async function getSmithsonianItem(itemId: string) {
-  const response = await fetch(
-    `https://api.si.edu/openaccess/api/v1.0/content/${itemId}?api_key=${SMITHSONIAN_API_KEY}`,
-    {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    }
-  );
+  const { data, error } = await getSupabase().functions.invoke('smithsonian', {
+    body: { action: 'item', itemId },
+  });
 
-  if (!response.ok) {
-    throw new Error(`Smithsonian API error: ${response.statusText}`);
-  }
-
-  return response.json();
+  if (error) throw new Error(`Smithsonian fetch failed: ${error.message}`);
+  if (!data.success) throw new Error(data.error || 'Smithsonian fetch failed');
+  return data.data;
 }
