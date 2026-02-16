@@ -1,5 +1,3 @@
-const SMITHSONIAN_API_KEY = process.env.NEXT_PUBLIC_SMITHSONIAN_API_KEY || 'DEMO_KEY';
-
 interface SmithsonianSearchParams {
   query: string;
   rows?: number;
@@ -53,7 +51,7 @@ export async function searchSmithsonian(params: SmithsonianSearchParams): Promis
   }
 
   const response = await fetch(
-    `https://api.si.edu/openaccess/api/v1.0/search?${searchParams.toString()}&api_key=${SMITHSONIAN_API_KEY}`,
+    `https://api.si.edu/openaccess/api/v1.0/search?${searchParams.toString()}&api_key=DEMO_KEY`,
     {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
@@ -70,7 +68,7 @@ export async function searchSmithsonian(params: SmithsonianSearchParams): Promis
 
 export async function getSmithsonianItem(itemId: string) {
   const response = await fetch(
-    `https://api.si.edu/openaccess/api/v1.0/content/${itemId}?api_key=${SMITHSONIAN_API_KEY}`,
+    `https://api.si.edu/openaccess/api/v1.0/content/${itemId}?api_key=DEMO_KEY`,
     {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },

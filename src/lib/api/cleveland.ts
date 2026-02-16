@@ -1,4 +1,4 @@
-import { getSupabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import type { ClevelandSearchResponse, ClevelandArtwork } from '@/types/api';
 
 interface ClevelandSearchParams {
@@ -13,7 +13,7 @@ interface ClevelandSearchParams {
 }
 
 export async function searchCleveland(params: ClevelandSearchParams): Promise<ClevelandSearchResponse> {
-  const { data, error } = await getSupabase().functions.invoke('cleveland-museum', {
+  const { data, error } = await supabase.functions.invoke('cleveland-museum', {
     body: { action: 'search', ...params },
   });
 
@@ -23,7 +23,7 @@ export async function searchCleveland(params: ClevelandSearchParams): Promise<Cl
 }
 
 export async function getClevelandArtwork(artworkId: string): Promise<ClevelandArtwork> {
-  const { data, error } = await getSupabase().functions.invoke('cleveland-museum', {
+  const { data, error } = await supabase.functions.invoke('cleveland-museum', {
     body: { action: 'object', artworkId },
   });
 

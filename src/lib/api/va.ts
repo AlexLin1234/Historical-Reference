@@ -1,4 +1,4 @@
-import { getSupabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import type { VASearchResponse, VAObjectResponse } from '@/types/api';
 
 interface VASearchParams {
@@ -9,7 +9,7 @@ interface VASearchParams {
 }
 
 export async function searchVA(params: VASearchParams): Promise<VASearchResponse> {
-  const { data, error } = await getSupabase().functions.invoke('va-museum', {
+  const { data, error } = await supabase.functions.invoke('va-museum', {
     body: { action: 'search', ...params },
   });
 
@@ -19,7 +19,7 @@ export async function searchVA(params: VASearchParams): Promise<VASearchResponse
 }
 
 export async function getVAObject(systemNumber: string): Promise<VAObjectResponse> {
-  const { data, error } = await getSupabase().functions.invoke('va-museum', {
+  const { data, error } = await supabase.functions.invoke('va-museum', {
     body: { action: 'object', systemNumber },
   });
 
