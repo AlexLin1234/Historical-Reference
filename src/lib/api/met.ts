@@ -1,4 +1,4 @@
-import { getSupabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import type { MetSearchResponse, MetObjectResponse } from '@/types/api';
 
 interface MetSearchParams {
@@ -10,7 +10,7 @@ interface MetSearchParams {
 }
 
 export async function searchMet(params: MetSearchParams): Promise<MetSearchResponse> {
-  const { data, error } = await getSupabase().functions.invoke('met-museum', {
+  const { data, error } = await supabase.functions.invoke('met-museum', {
     body: { action: 'search', ...params },
   });
 
@@ -20,7 +20,7 @@ export async function searchMet(params: MetSearchParams): Promise<MetSearchRespo
 }
 
 export async function getMetObject(objectId: number): Promise<MetObjectResponse> {
-  const { data, error } = await getSupabase().functions.invoke('met-museum', {
+  const { data, error } = await supabase.functions.invoke('met-museum', {
     body: { action: 'object', objectId },
   });
 
@@ -30,7 +30,7 @@ export async function getMetObject(objectId: number): Promise<MetObjectResponse>
 }
 
 export async function batchFetchMetObjects(objectIds: number[]): Promise<MetObjectResponse[]> {
-  const { data, error } = await getSupabase().functions.invoke('met-museum', {
+  const { data, error } = await supabase.functions.invoke('met-museum', {
     body: { action: 'batch', objectIds },
   });
 
