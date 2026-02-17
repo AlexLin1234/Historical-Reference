@@ -6,12 +6,20 @@ export function normalizeSmithsonianItem(item: any): NormalizedArtifact {
   const freetext = content.freetext || {};
   const indexed = content.indexedStructured || {};
 
-  // Extract image
-  const media = descriptive.online_media?.media?.[0];
+  // Extract images
+  const allMedia = descriptive.online_media?.media || [];
+  const imageMedia = allMedia.filter((m: any) => m.type === 'Images');
+  const media = imageMedia[0] || allMedia[0];
   const imageId = media?.idsId;
   const primaryImage = imageId
     ? `https://ids.si.edu/ids/deliveryService?id=${imageId}`
-    : media?.thumbnail || null;
+    : media?.content || media?.thumbnail || null;
+
+  // Extract additional images beyond the first
+  const additionalImages = imageMedia.slice(1).map((m: any) => {
+    if (m.idsId) return `https://ids.si.edu/ids/deliveryService?id=${m.idsId}`;
+    return m.content || m.thumbnail || null;
+  }).filter(Boolean);
 
   // Extract date
   const dateStr = freetext.date?.[0]?.content || indexed.date?.[0] || '';
@@ -43,8 +51,8 @@ export function normalizeSmithsonianItem(item: any): NormalizedArtifact {
     description: freetext.dataSource?.[0]?.content || null,
 
     primaryImage,
-    primaryImageSmall: primaryImage,
-    additionalImages: [],
+    primaryImageSmall: media?.thumbnail || primaryImage,
+    additionalImages,
 
     department: item.unitCode || null,
     gallery: null,
@@ -52,7 +60,7 @@ export function normalizeSmithsonianItem(item: any): NormalizedArtifact {
     region: indexed.place?.[0] || null,
     creditLine: 'Smithsonian Institution',
 
-    sourceUrl: `https://collections.si.edu/search/detail/${item.id}`,
+    sourceUrl: descriptive.record_link || descriptive.guid || `https://www.si.edu/object/${item.id}`,
 
     isPublicDomain: descriptive.metadata_usage?.access === 'CC0' || false,
   };

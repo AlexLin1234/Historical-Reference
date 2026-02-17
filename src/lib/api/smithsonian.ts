@@ -16,10 +16,13 @@ interface SmithsonianSearchResponse {
     content?: {
       descriptiveNonRepeating?: {
         title?: { content?: string };
+        record_link?: string;
+        guid?: string;
         metadata_usage?: { access?: string };
         online_media?: {
           media?: Array<{
             thumbnail?: string;
+            content?: string;
             idsId?: string;
             type?: string;
           }>;
