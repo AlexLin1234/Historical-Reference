@@ -18,8 +18,7 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'wallacelive.wallacecollection.org' },
       { protocol: 'https', hostname: 'collections.royalarmouries.org' },
       // Smithsonian CDN
-      { protocol: 'https', hostname: 'ids.si.edu' },
-      { protocol: 'https', hostname: 'si.edu' },
+      { protocol: 'https', hostname: '*.si.edu' },
     ],
   },
 };

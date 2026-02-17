@@ -10,9 +10,11 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { getClevelandArtwork } from '@/lib/api/cleveland';
 import { getVAObject } from '@/lib/api/va';
 import { getMetObject } from '@/lib/api/met';
+import { getSmithsonianItem } from '@/lib/api/smithsonian';
 import { normalizeClevelandArtwork } from '@/lib/normalizers/cleveland';
 import { normalizeVAObject } from '@/lib/normalizers/va';
 import { normalizeMetObject } from '@/lib/normalizers/met';
+import { normalizeSmithsonianItem } from '@/lib/normalizers/smithsonian';
 
 export default function ArtifactPage() {
   const params = useParams();
@@ -41,6 +43,9 @@ export default function ArtifactPage() {
         } else if (source === 'met') {
           const data = await getMetObject(parseInt(id));
           normalized = normalizeMetObject(data);
+        } else if (source === 'smithsonian') {
+          const data = await getSmithsonianItem(id);
+          normalized = normalizeSmithsonianItem(data.response);
         } else {
           throw new Error('Unsupported source');
         }
