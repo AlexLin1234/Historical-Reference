@@ -60,6 +60,8 @@ export const MUSEUM_LABELS: Record<string, string> = {
   smithsonian: 'Smithsonian Institution',
   harvard: 'Harvard Art Museums',
   chicago: 'Art Institute of Chicago',
+  europeana: 'Europeana',
+  rijksmuseum: 'Rijksmuseum',
   scraped: 'Web Scrape',
 };
 

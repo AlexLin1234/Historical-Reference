@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 
 interface BadgeProps {
   children: React.ReactNode;
-  variant?: 'default' | 'met' | 'va' | 'cleveland' | 'smithsonian' | 'harvard' | 'chicago' | 'scraped';
+  variant?: 'default' | 'met' | 'va' | 'cleveland' | 'smithsonian' | 'harvard' | 'chicago' | 'europeana' | 'rijksmuseum' | 'scraped';
   className?: string;
 }
 
@@ -14,6 +14,8 @@ const variantClasses: Record<string, string> = {
   smithsonian: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
   harvard: 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300',
   chicago: 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300',
+  europeana: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300',
+  rijksmuseum: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
   scraped: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
 };
 

@@ -1,4 +1,5 @@
 import type { NormalizedArtifact } from '@/types/artifact';
+import { stripHtml } from '@/lib/utils';
 
 export function normalizeSmithsonianItem(item: any): NormalizedArtifact {
   const content = item.content || {};
@@ -26,8 +27,9 @@ export function normalizeSmithsonianItem(item: any): NormalizedArtifact {
   const dateMatch = dateStr.match(/(\d{4})/);
   const year = dateMatch ? parseInt(dateMatch[1]) : null;
 
-  // Extract title
-  const title = descriptive.title?.content || item.title || 'Untitled';
+  // Extract title (Smithsonian sometimes includes HTML like <i> tags)
+  const rawTitle = descriptive.title?.content || item.title || 'Untitled';
+  const title = stripHtml(rawTitle);
 
   return {
     id: `smithsonian-${item.id}`,

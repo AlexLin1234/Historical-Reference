@@ -19,6 +19,10 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'collections.royalarmouries.org' },
       // Smithsonian CDN
       { protocol: 'https', hostname: '*.si.edu' },
+      // Harvard Art Museums
+      { protocol: 'https', hostname: 'nrs.harvard.edu' },
+      // Art Institute of Chicago (IIIF)
+      { protocol: 'https', hostname: 'www.artic.edu' },
     ],
   },
 };

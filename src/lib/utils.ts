@@ -4,6 +4,10 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
 }
 
+export function stripHtml(str: string): string {
+  return str.replace(/<[^>]*>/g, '');
+}
+
 export function formatDate(date: string | null): string {
   if (!date) return 'Date unknown';
   return date;
