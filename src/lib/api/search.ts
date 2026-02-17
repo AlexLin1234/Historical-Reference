@@ -110,14 +110,22 @@ async function searchSmithsonianSource(
   page: number,
   pageSize: number
 ): Promise<SearchResults> {
+  // The Smithsonian API's online_media_type filter doesn't reliably exclude
+  // items without images, so we over-fetch and filter client-side.
+  const fetchMultiplier = filters.hasImage ? 5 : 1;
   const resp = await searchSmithsonian({
     query: filters.query,
-    rows: pageSize,
-    start: (page - 1) * pageSize,
+    rows: pageSize * fetchMultiplier,
+    start: (page - 1) * pageSize * fetchMultiplier,
     online_media_only: filters.hasImage,
   });
 
   let artifacts = (resp.rows || []).map(normalizeSmithsonianItem);
+
+  // Filter out items without images when hasImage filter is on
+  if (filters.hasImage) {
+    artifacts = artifacts.filter((a) => a.primaryImage !== null);
+  }
 
   // Client-side date filtering
   if (filters.timePeriod) {
@@ -128,6 +136,9 @@ async function searchSmithsonianSource(
       return latest >= filters.timePeriod!.startYear && earliest <= filters.timePeriod!.endYear;
     });
   }
+
+  // Trim to requested page size after filtering
+  artifacts = artifacts.slice(0, pageSize);
 
   return {
     artifacts,
