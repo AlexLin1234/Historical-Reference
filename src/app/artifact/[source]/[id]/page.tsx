@@ -11,10 +11,14 @@ import { getClevelandArtwork } from '@/lib/api/cleveland';
 import { getVAObject } from '@/lib/api/va';
 import { getMetObject } from '@/lib/api/met';
 import { getSmithsonianItem } from '@/lib/api/smithsonian';
+import { getHarvardObject } from '@/lib/api/harvard';
+import { getChicagoArtwork } from '@/lib/api/chicago';
 import { normalizeClevelandArtwork } from '@/lib/normalizers/cleveland';
 import { normalizeVAObject } from '@/lib/normalizers/va';
 import { normalizeMetObject } from '@/lib/normalizers/met';
 import { normalizeSmithsonianItem } from '@/lib/normalizers/smithsonian';
+import { normalizeHarvardObject } from '@/lib/normalizers/harvard';
+import { normalizeChicagoArtwork } from '@/lib/normalizers/chicago';
 
 export default function ArtifactPage() {
   const params = useParams();
@@ -46,6 +50,12 @@ export default function ArtifactPage() {
         } else if (source === 'smithsonian') {
           const data = await getSmithsonianItem(id);
           normalized = normalizeSmithsonianItem(data.response);
+        } else if (source === 'harvard') {
+          const data = await getHarvardObject(parseInt(id));
+          normalized = normalizeHarvardObject(data);
+        } else if (source === 'chicago') {
+          const resp = await getChicagoArtwork(parseInt(id));
+          normalized = normalizeChicagoArtwork(resp.data, resp.config?.iiif_url);
         } else {
           throw new Error('Unsupported source');
         }

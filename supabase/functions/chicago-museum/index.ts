@@ -1,6 +1,7 @@
 import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt } from '../_shared/cors.ts';
 
-const BASE_URL = 'https://openaccess-api.clevelandart.org/api/artworks/';
+const BASE_URL = 'https://api.artic.edu/api/v1/artworks';
+const FIELDS = 'id,title,artist_display,date_display,date_start,date_end,medium_display,dimensions,image_id,classification_title,department_title,place_of_origin,credit_line,thumbnail,description,is_public_domain,api_link';
 
 Deno.serve(async (req) => {
   const corsResp = handleCors(req);
@@ -16,33 +17,35 @@ Deno.serve(async (req) => {
     if (action === 'search') {
       const query = validateString(body.query, 'query');
       if (query instanceof Response) return query;
-
-      const { hasImage = true, type, department, created_after, created_before } = body;
-      const skip = validateInt(body.skip ?? 0, 'skip', 0, 100000);
-      if (skip instanceof Response) return skip;
       const limit = validateInt(body.limit ?? 20, 'limit', 1, 100);
       if (limit instanceof Response) return limit;
+      const page = validateInt(body.page ?? 1, 'page', 1, 10000);
+      if (page instanceof Response) return page;
 
-      const params = new URLSearchParams();
-      params.set('q', query);
-      if (hasImage) params.set('has_image', '1');
-      params.set('limit', String(limit));
-      params.set('skip', String(skip));
-      if (type) params.set('type', String(type).slice(0, 200));
-      if (department) params.set('department', String(department).slice(0, 200));
-      if (created_after) params.set('created_after', String(created_after));
-      if (created_before) params.set('created_before', String(created_before));
+      const params = new URLSearchParams({
+        q: query,
+        limit: String(limit),
+        page: String(page),
+        fields: FIELDS,
+      });
 
-      const resp = await fetch(`${BASE_URL}?${params.toString()}`);
+      const resp = await fetch(`${BASE_URL}/search?${params.toString()}`);
+      if (!resp.ok) {
+        return errorResponse(`Chicago API error: ${resp.statusText}`, resp.status, req);
+      }
       const data = await resp.json();
       return jsonResponse({ success: true, data }, 200, req);
     }
 
     if (action === 'object') {
-      const artworkId = validateString(body.artworkId, 'artworkId', 50);
+      const artworkId = validateInt(body.artworkId, 'artworkId', 1, 99999999);
       if (artworkId instanceof Response) return artworkId;
 
-      const resp = await fetch(`${BASE_URL}${encodeURIComponent(artworkId)}`);
+      const params = new URLSearchParams({ fields: FIELDS });
+      const resp = await fetch(`${BASE_URL}/${artworkId}?${params.toString()}`);
+      if (!resp.ok) {
+        return errorResponse(`Chicago API error: ${resp.statusText}`, resp.status, req);
+      }
       const data = await resp.json();
       return jsonResponse({ success: true, data }, 200, req);
     }

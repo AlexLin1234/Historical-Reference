@@ -3,11 +3,17 @@ import { searchCleveland } from './cleveland';
 import { searchVA } from './va';
 import { searchMet, batchFetchMetObjects } from './met';
 import { searchSmithsonian } from './smithsonian';
+import { searchHarvard } from './harvard';
+import { searchChicago } from './chicago';
 import { normalizeClevelandArtwork } from '@/lib/normalizers/cleveland';
 import { normalizeVASearchRecord } from '@/lib/normalizers/va';
 import { normalizeMetObject } from '@/lib/normalizers/met';
 import { normalizeSmithsonianItem } from '@/lib/normalizers/smithsonian';
+import { normalizeHarvardObject } from '@/lib/normalizers/harvard';
+import { normalizeChicagoArtwork } from '@/lib/normalizers/chicago';
 import { CATEGORY_MAP, MET_DEPARTMENTS, DEFAULT_PAGE_SIZE } from '@/lib/constants';
+import { expandQuery } from '@/lib/search/synonyms';
+import { rankResults } from '@/lib/search/ranking';
 
 async function searchClevelandSource(
   filters: SearchFilters,
@@ -110,10 +116,6 @@ async function searchSmithsonianSource(
   page: number,
   pageSize: number
 ): Promise<SearchResults> {
-  // The Smithsonian search API doesn't include online_media in most search
-  // results, even for items that have images. We pass online_media_only as a
-  // hint to the API but can't reliably filter client-side by primaryImage
-  // since the data simply isn't present in search responses.
   const resp = await searchSmithsonian({
     query: filters.query,
     rows: pageSize,
@@ -123,7 +125,6 @@ async function searchSmithsonianSource(
 
   let artifacts = (resp.rows || []).map(normalizeSmithsonianItem);
 
-  // Client-side date filtering
   if (filters.timePeriod) {
     artifacts = artifacts.filter((a) => {
       if (a.dateEarliest === null && a.dateLatest === null) return true;
@@ -142,6 +143,76 @@ async function searchSmithsonianSource(
   };
 }
 
+async function searchHarvardSource(
+  filters: SearchFilters,
+  page: number,
+  pageSize: number
+): Promise<SearchResults> {
+  const categoryMapping = filters.category ? CATEGORY_MAP[filters.category]?.harvard : undefined;
+  const resp = await searchHarvard({
+    query: filters.query,
+    size: pageSize,
+    page,
+    hasImage: filters.hasImage ? true : undefined,
+    classification: categoryMapping,
+  });
+
+  let artifacts = (resp.records || []).map(normalizeHarvardObject);
+
+  if (filters.timePeriod) {
+    artifacts = artifacts.filter((a) => {
+      if (a.dateEarliest === null && a.dateLatest === null) return true;
+      const earliest = a.dateEarliest ?? -Infinity;
+      const latest = a.dateLatest ?? Infinity;
+      return latest >= filters.timePeriod!.startYear && earliest <= filters.timePeriod!.endYear;
+    });
+  }
+
+  return {
+    artifacts,
+    totalResults: resp.info?.totalrecords ?? 0,
+    page,
+    pageSize,
+    source: 'harvard',
+  };
+}
+
+async function searchChicagoSource(
+  filters: SearchFilters,
+  page: number,
+  pageSize: number
+): Promise<SearchResults> {
+  const resp = await searchChicago({
+    query: filters.query,
+    limit: pageSize,
+    page,
+  });
+
+  const iiifUrl = resp.config?.iiif_url || 'https://www.artic.edu/iiif/2';
+  let artifacts = (resp.data || []).map((item) => normalizeChicagoArtwork(item, iiifUrl));
+
+  if (filters.hasImage) {
+    artifacts = artifacts.filter((a) => a.primaryImage !== null);
+  }
+
+  if (filters.timePeriod) {
+    artifacts = artifacts.filter((a) => {
+      if (a.dateEarliest === null && a.dateLatest === null) return true;
+      const earliest = a.dateEarliest ?? -Infinity;
+      const latest = a.dateLatest ?? Infinity;
+      return latest >= filters.timePeriod!.startYear && earliest <= filters.timePeriod!.endYear;
+    });
+  }
+
+  return {
+    artifacts,
+    totalResults: resp.pagination?.total ?? 0,
+    page,
+    pageSize,
+    source: 'chicago',
+  };
+}
+
 const SOURCE_SEARCHERS: Record<
   MuseumSource,
   ((f: SearchFilters, p: number, ps: number) => Promise<SearchResults>) | null
@@ -150,16 +221,30 @@ const SOURCE_SEARCHERS: Record<
   va: searchVASource,
   met: searchMetSource,
   smithsonian: searchSmithsonianSource,
-  harvard: null,
-  chicago: null,
+  harvard: searchHarvardSource,
+  chicago: searchChicagoSource,
+  europeana: null,
+  rijksmuseum: null,
   scraped: null,
 };
+
+export function registerSourceSearcher(
+  source: MuseumSource,
+  searcher: (f: SearchFilters, p: number, ps: number) => Promise<SearchResults>
+) {
+  SOURCE_SEARCHERS[source] = searcher;
+}
 
 export async function searchAllMuseums(
   filters: SearchFilters,
   page: number = 1,
   pageSize: number = DEFAULT_PAGE_SIZE
 ): Promise<AggregatedSearchResults> {
+  // Expand query with synonyms for broader results
+  const originalQuery = filters.query;
+  const expandedQuery = expandQuery(originalQuery);
+  const expandedFilters = { ...filters, query: expandedQuery };
+
   const sources = filters.sources.filter((s) => SOURCE_SEARCHERS[s] != null);
 
   const promises = sources.map(async (source): Promise<{
@@ -169,7 +254,7 @@ export async function searchAllMuseums(
   }> => {
     try {
       const searcher = SOURCE_SEARCHERS[source]!;
-      const result = await searcher(filters, page, pageSize);
+      const result = await searcher(expandedFilters, page, pageSize);
       return { source, result };
     } catch (err) {
       return { source, error: (err as Error).message };
@@ -187,6 +272,11 @@ export async function searchAllMuseums(
       if (result) results.push(result);
       if (error) errors.push({ source, message: error });
     }
+  }
+
+  // Apply relevance ranking across all results using the original query
+  for (const result of results) {
+    result.artifacts = rankResults(result.artifacts, originalQuery);
   }
 
   return { results, isLoading: false, errors };
