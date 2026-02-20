@@ -1,6 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  webpack: (config) => {
+    // Prevent Next.js from bundling Node.js-only dependencies of @xenova/transformers
+    // (onnxruntime-node, sharp) when building for the browser.
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'sharp$': false,
+      'onnxruntime-node$': false,
+    };
+    return config;
+  },
   images: {
     remotePatterns: [
       // Museum APIs
