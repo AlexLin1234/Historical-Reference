@@ -5,14 +5,24 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ArtifactCard } from '@/components/artifact/ArtifactCard';
+import { Pagination } from '@/components/ui/Pagination';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 
 interface SearchResultsProps {
   results: AggregatedSearchResults | null;
   isLoading: boolean;
+  currentPage: number;
+  onPageChange: (page: number) => void;
   onRetry?: () => void;
 }
 
-export function SearchResults({ results, isLoading, onRetry }: SearchResultsProps) {
+export function SearchResults({
+  results,
+  isLoading,
+  currentPage,
+  onPageChange,
+  onRetry,
+}: SearchResultsProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -33,6 +43,10 @@ export function SearchResults({ results, isLoading, onRetry }: SearchResultsProp
   const allArtifacts = results.results.flatMap((r) => r.artifacts);
   const hasResults = allArtifacts.length > 0;
 
+  // Compute totals across all museum sources for pagination
+  const totalResults = results.results.reduce((sum, r) => sum + r.totalResults, 0);
+  const totalPages = Math.max(1, Math.ceil(totalResults / DEFAULT_PAGE_SIZE));
+
   if (!hasResults && results.errors.length === 0) {
     return (
       <EmptyState
@@ -41,6 +55,9 @@ export function SearchResults({ results, isLoading, onRetry }: SearchResultsProp
       />
     );
   }
+
+  const rangeStart = (currentPage - 1) * DEFAULT_PAGE_SIZE + 1;
+  const rangeEnd = rangeStart + allArtifacts.length - 1;
 
   return (
     <div className="space-y-6">
@@ -61,12 +78,22 @@ export function SearchResults({ results, isLoading, onRetry }: SearchResultsProp
       {hasResults && (
         <div>
           <p className="mb-4 text-sm text-steel dark:text-steel-light">
-            Found {allArtifacts.length} artifacts across {results.results.length} museums
+            Showing {rangeStart}&ndash;{rangeEnd} of {totalResults.toLocaleString()} artifacts
+            {' '}across {results.results.length} museum{results.results.length !== 1 ? 's' : ''}
           </p>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {allArtifacts.map((artifact) => (
               <ArtifactCard key={artifact.id} artifact={artifact} />
             ))}
+          </div>
+
+          {/* Pagination */}
+          <div className="mt-8">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={onPageChange}
+            />
           </div>
         </div>
       )}

@@ -1,12 +1,14 @@
 'use client';
 
+import { useCallback, useRef } from 'react';
 import { SearchBar } from '@/components/search/SearchBar';
 import { FilterPanel } from '@/components/search/FilterPanel';
 import { SearchResults } from '@/components/search/SearchResults';
 import { useSearch } from '@/hooks/useSearch';
 
 export default function Home() {
-  const { filters, setFilters, setQuery, results, isLoading, search } = useSearch();
+  const { filters, setFilters, setQuery, results, isLoading, page, setPage, search } = useSearch();
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   const handleSearch = (query: string) => {
     setQuery(query);
@@ -20,6 +22,16 @@ export default function Home() {
       search(newFilters);
     }
   };
+
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      setPage(newPage);
+      search(undefined, newPage);
+      // Scroll to top of results
+      resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+    [setPage, search]
+  );
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -44,7 +56,15 @@ export default function Home() {
       </div>
 
       {/* Results */}
-      <SearchResults results={results} isLoading={isLoading} onRetry={() => search()} />
+      <div ref={resultsRef}>
+        <SearchResults
+          results={results}
+          isLoading={isLoading}
+          currentPage={page}
+          onPageChange={handlePageChange}
+          onRetry={() => search()}
+        />
+      </div>
     </div>
   );
 }
