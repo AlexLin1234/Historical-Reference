@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import type { SearchFilters, AggregatedSearchResults, NormalizedArtifact } from '@/types/artifact';
 import { searchAllMuseums } from '@/lib/api/search';
-import { semanticRerank } from '@/lib/search/semantic';
+import { vectorSearch, filtersToVectorOptions } from '@/lib/api/vector-search';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 
 const DEFAULT_FILTERS: SearchFilters = {
@@ -46,21 +46,45 @@ export function useSearch() {
       }
       setIsLoading(false);
 
-      // Phase 2: semantic re-ranking runs after keyword results are already shown.
-      // All artifacts are ranked globally (across sources) then re-distributed back
-      // so the within-source ordering reflects true semantic relevance.
-      const allArtifacts = data.results.flatMap((r) => r.artifacts);
-      if (allArtifacts.length === 0) return;
+      // Phase 2: server-side vector search re-ranks and supplements keyword results.
+      // The vector-search Edge Function embeds the query with gte-small, queries
+      // pgvector, and returns artifacts ordered by cosine similarity.
+      //
+      // Strategy:
+      //  1. Vector results surface semantically relevant artifacts (even if they
+      //     didn't match keywords) and go to the front of the list.
+      //  2. Keyword-only results that weren't in the vector results fill in after.
+      //  3. If the vector index is empty (not yet seeded), this is a no-op and
+      //     keyword-ranked results are kept as-is.
+      const allKeywordArtifacts = data.results.flatMap((r) => r.artifacts);
+      if (allKeywordArtifacts.length === 0) return;
 
       setIsReranking(true);
       try {
-        const reranked = await semanticRerank(allArtifacts, activeFilters.query);
+        const vectorMatches = await vectorSearch(
+          filtersToVectorOptions(activeFilters, 50)
+        );
 
-        // Re-distribute back to per-source buckets in global semantic order
+        if (vectorMatches.length === 0) return; // index not seeded — keep keyword order
+
+        // Only keep vector matches whose source is currently selected
+        const selectedSources = new Set(activeFilters.sources);
+        const filteredMatches = vectorMatches.filter((a) =>
+          selectedSources.has(a.source)
+        );
+
+        if (filteredMatches.length === 0) return;
+
+        // Merge: vector results first, then keyword-only results not already included
+        const vectorIds = new Set(filteredMatches.map((a) => a.id));
+        const keywordOnly = allKeywordArtifacts.filter((a) => !vectorIds.has(a.id));
+        const merged = [...filteredMatches, ...keywordOnly];
+
+        // Re-distribute back to per-source buckets, preserving the merged order
         const bySource = new Map(
           data.results.map((r) => [r.source, [] as NormalizedArtifact[]])
         );
-        for (const artifact of reranked) {
+        for (const artifact of merged) {
           bySource.get(artifact.source)?.push(artifact);
         }
 
@@ -71,7 +95,7 @@ export function useSearch() {
 
         setResults({ ...data, results: rerankedResults });
       } catch {
-        // Keyword-ranked results remain — semantic re-ranking is best-effort
+        // Vector search is best-effort: keyword-ranked results remain on failure
       } finally {
         setIsReranking(false);
       }
