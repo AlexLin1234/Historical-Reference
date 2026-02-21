@@ -22,11 +22,27 @@
  *   INGEST_LIMIT_PER_SOURCE=500 npx tsx scripts/ingest-artifacts.ts
  */
 
-import { config } from 'dotenv';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 
-// Load .env.local then .env
-config({ path: '.env.local' });
-config();
+// Load .env.local / .env without requiring the dotenv package.
+// Variables already in process.env (e.g. set via `export` in the shell) take precedence.
+for (const file of ['.env.local', '.env']) {
+  try {
+    const contents = readFileSync(resolve(process.cwd(), file), 'utf8');
+    for (const line of contents.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx === -1) continue;
+      const key = trimmed.slice(0, eqIdx).trim();
+      const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
+      if (!(key in process.env)) process.env[key] = val;
+    }
+  } catch {
+    // File doesn't exist — that's fine
+  }
+}
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
