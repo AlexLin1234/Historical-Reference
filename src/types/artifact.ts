@@ -5,6 +5,7 @@ export type MuseumSource =
   | 'smithsonian'
   | 'harvard'
   | 'chicago'
+  | 'mia'
   | 'europeana'
   | 'rijksmuseum'
   | 'scraped';
@@ -46,6 +47,9 @@ export interface NormalizedArtifact {
 
   /** Museum accession / inventory number, used in citations. */
   accessionNumber?: string | null;
+
+  /** Holding institution, for aggregators where it differs per record. */
+  holder?: string | null;
 }
 
 export interface TimePeriod {
@@ -94,5 +98,5 @@ export interface AggregatedSearchResults {
   related: string[];
   didYouMean: string | null;
   isLoading: boolean;
-  errors: { source: MuseumSource; message: string }[];
+  errors: { source: MuseumSource; message: string; notConfigured?: boolean }[];
 }

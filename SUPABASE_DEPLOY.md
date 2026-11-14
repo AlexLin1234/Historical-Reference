@@ -1,5 +1,7 @@
 # Deploying to Supabase
 
+> **Note:** the app now has more functions than this guide lists. Run `./deploy-functions.sh` (or `deploy-functions.ps1`) to deploy all of them, and see the README for the optional museum API keys.
+
 This guide walks you through deploying the Reenactor's Reference application to Supabase.
 
 ## Prerequisites

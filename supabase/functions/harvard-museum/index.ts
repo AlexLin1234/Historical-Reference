@@ -11,7 +11,11 @@ Deno.serve(async (req) => {
   if (rlResp) return rlResp;
 
   if (!API_KEY) {
-    return errorResponse('Harvard Art Museums search is not set up on this server (missing API key)', 503, req);
+    return jsonResponse(
+      { success: false, code: 'not_configured', error: 'Harvard Art Museums search is not set up on this server (missing API key)' },
+      503,
+      req
+    );
   }
 
   try {

@@ -137,12 +137,18 @@ async function ingestAll(artifacts: NormalizedArtifact[], sourceName: string) {
 
 // Metropolitan Museum of Art
 async function fetchMet(limit: number): Promise<NormalizedArtifact[]> {
-  const searchRes = await fetch(
-    'https://collectionapi.metmuseum.org/public/collection/v1/search?' +
-      new URLSearchParams({ q: 'armor OR weapon OR textile OR sword', hasImages: 'true' })
-  );
-  const { objectIDs = [] } = await searchRes.json();
-  const ids: number[] = objectIDs.slice(0, limit);
+  // The v1 search endpoint was retired on 2026-10-01; v1.1 is paginated.
+  const ids: number[] = [];
+  for (const q of ['armor', 'sword', 'helmet', 'textile', 'costume']) {
+    const searchRes = await fetch(
+      'https://collectionapi.metmuseum.org/public/collection/v1.1/search?' +
+        new URLSearchParams({ q, hasImages: 'true', limit: String(Math.ceil(limit / 5)) })
+    );
+    if (!searchRes.ok) throw new Error(`Met search returned ${searchRes.status}`);
+    const { objectIDs } = await searchRes.json();
+    for (const id of objectIDs || []) if (!ids.includes(id) && ids.length < limit) ids.push(id);
+    await sleep(300);
+  }
 
   const artifacts: NormalizedArtifact[] = [];
   for (let i = 0; i < ids.length; i += 20) {
@@ -219,7 +225,9 @@ async function fetchVA(limit: number): Promise<NormalizedArtifact[]> {
       artist: (r._primaryMaker as Record<string, unknown>)?.name as string || null,
       artistBio: null,
       description: null,
-      primaryImage: image?._primary_thumbnail as string || null,
+      primaryImage: image?._iiif_image_base_url
+        ? `${String(image._iiif_image_base_url).replace(/\/+$/, '')}/full/!1200,1200/0/default.jpg`
+        : null,
       primaryImageSmall: image?._primary_thumbnail as string || null,
       additionalImages: [],
       department: null,
@@ -236,7 +244,7 @@ async function fetchVA(limit: number): Promise<NormalizedArtifact[]> {
 // Cleveland Museum of Art
 async function fetchCleveland(limit: number): Promise<NormalizedArtifact[]> {
   const res = await fetch(
-    `https://openaccess-api.clevelandart.org/api/artworks/?limit=${Math.min(limit, 100)}&has_image=1&type=armor,weapon,textile`
+    `https://openaccess-api.clevelandart.org/api/artworks/?limit=${Math.min(limit, 100)}&has_image=1&type=${encodeURIComponent('Arms and Armor')}`
   );
   const data = await res.json();
   const items: Record<string, unknown>[] = data.data || [];
@@ -244,7 +252,7 @@ async function fetchCleveland(limit: number): Promise<NormalizedArtifact[]> {
   return items.slice(0, limit).map((o: Record<string, unknown>) => {
     const images = o.images as Record<string, Record<string, string>> | null;
     return {
-      id: `cleveland-${o.id}`,
+      id: `cma-${o.id}`,
       sourceId: String(o.id),
       source: 'cleveland',
       title: (o.title as string) || 'Untitled',
@@ -252,11 +260,11 @@ async function fetchCleveland(limit: number): Promise<NormalizedArtifact[]> {
       dateEarliest: (o.creation_date_earliest as number) ?? null,
       dateLatest: (o.creation_date_latest as number) ?? null,
       period: null,
-      culture: (o.culture as string) || null,
+      culture: Array.isArray(o.culture) ? (o.culture as string[]).join(', ') || null : null,
       classification: (o.type as string) || null,
       objectType: (o.type as string) || null,
       medium: (o.technique as string) || null,
-      dimensions: (o.dimensions as string) || null,
+      dimensions: (o.measurements as string) || null,
       artist: ((o.creators as Record<string, unknown>[])?.[0]?.description as string) || null,
       artistBio: null,
       description: (o.description as string) || null,
@@ -312,7 +320,7 @@ async function fetchChicago(limit: number): Promise<NormalizedArtifact[]> {
       country: (o.place_of_origin as string) || null,
       region: null,
       creditLine: null,
-      sourceUrl: (o.api_link as string) || `https://www.artic.edu/artworks/${o.id}`,
+      sourceUrl: `https://www.artic.edu/artworks/${o.id}`,
       isPublicDomain: Boolean(o.is_public_domain),
     };
   });

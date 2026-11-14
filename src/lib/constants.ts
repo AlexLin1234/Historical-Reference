@@ -81,13 +81,14 @@ export const SEARCH_SOURCES: SourceInfo[] = [
   { id: 'smithsonian', label: 'Smithsonian Institution', shortLabel: 'Smithsonian', dialect: 'us', citation: 'Smithsonian Institution, Washington, DC' },
   { id: 'harvard', label: 'Harvard Art Museums', shortLabel: 'Harvard', dialect: 'us', citation: 'Harvard Art Museums, Cambridge, MA' },
   { id: 'chicago', label: 'Art Institute of Chicago', shortLabel: 'Chicago', dialect: 'us', citation: 'The Art Institute of Chicago' },
+  { id: 'mia', label: 'Minneapolis Institute of Art', shortLabel: 'Mia', dialect: 'us', citation: 'Minneapolis Institute of Art' },
+  { id: 'europeana', label: 'Europeana (European museums)', shortLabel: 'Europeana', dialect: 'uk', citation: 'Europeana' },
 ];
 
 export const SEARCH_SOURCE_IDS: MuseumSource[] = SEARCH_SOURCES.map((s) => s.id);
 
 export const MUSEUM_LABELS: Record<string, string> = {
   ...Object.fromEntries(SEARCH_SOURCES.map((s) => [s.id, s.label])),
-  europeana: 'Europeana',
   rijksmuseum: 'Rijksmuseum',
   scraped: 'Web Scrape',
 };

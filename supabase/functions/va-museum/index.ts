@@ -33,8 +33,13 @@ Deno.serve(async (req) => {
       if (body.hasImage !== false) params.set('images_exist', '1');
       if (yearFrom !== undefined) params.set('year_made_from', String(yearFrom));
       if (yearTo !== undefined) params.set('year_made_to', String(yearTo));
-      if (typeof body.categoryId === 'string' && /^[A-Za-z0-9]{1,30}$/.test(body.categoryId)) {
-        params.set('id_category', body.categoryId);
+      // Repeated id_category parameters are OR-ed by the V&A.
+      if (Array.isArray(body.categoryIds)) {
+        for (const id of body.categoryIds.slice(0, 8)) {
+          if (typeof id === 'string' && /^[A-Za-z0-9]{1,16}$/.test(id)) {
+            params.append('id_category', id);
+          }
+        }
       }
 
       const data = await fetchUpstream(`${BASE_URL}objects/search?${params.toString()}`, NAME);

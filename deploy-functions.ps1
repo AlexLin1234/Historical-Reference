@@ -1,14 +1,16 @@
-# PowerShell script to deploy all Supabase Edge Functions
-Write-Host "🚀 Deploying Supabase Edge Functions..." -ForegroundColor Cyan
+# Deploy all Supabase Edge Functions (PowerShell)
+Write-Host "Deploying Supabase Edge Functions..." -ForegroundColor Cyan
 
-Write-Host "`n📦 Deploying cleveland-museum..." -ForegroundColor Yellow
-npx supabase functions deploy cleveland-museum
+$functions = @(
+  "met-museum", "va-museum", "cleveland-museum", "smithsonian", "harvard-museum",
+  "chicago-museum", "mia-museum", "europeana", "firecrawl-scrape", "vector-search",
+  "ingest-artifact"
+)
 
-Write-Host "`n📦 Deploying va-museum..." -ForegroundColor Yellow
-npx supabase functions deploy va-museum
+foreach ($fn in $functions) {
+  Write-Host "`nDeploying $fn..." -ForegroundColor Yellow
+  npx supabase functions deploy $fn
+}
 
-Write-Host "`n📦 Deploying met-museum..." -ForegroundColor Yellow
-npx supabase functions deploy met-museum
-
-Write-Host "`n✅ All functions deployed!" -ForegroundColor Green
-Write-Host "🧪 Test your search at http://localhost:3000" -ForegroundColor Cyan
+Write-Host "`nAll functions deployed." -ForegroundColor Green
+Write-Host "Optional keys: npx supabase secrets set SMITHSONIAN_API_KEY=... HARVARD_API_KEY=... EUROPEANA_API_KEY=... FIRECRAWL_API_KEY=..." -ForegroundColor Cyan

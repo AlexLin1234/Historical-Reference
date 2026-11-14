@@ -1,5 +1,7 @@
 # Reenactor's Reference - Setup Guide
 
+> **Note:** the app now has more functions than this guide lists. Run `./deploy-functions.sh` (or `deploy-functions.ps1`) to deploy all of them, and see the README for the optional museum API keys.
+
 ## 🔑 API Keys Required
 
 ### 1. Supabase (Required)

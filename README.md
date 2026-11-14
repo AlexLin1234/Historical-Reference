@@ -1,6 +1,6 @@
 # Reenactor's Reference
 
-A full-stack historical artifact search app aggregating 1.6M+ items from 4 major museum APIs (Met, V&A, Cleveland, Smithsonian) with unified search, filtering, and collection management — built with Next.js, TypeScript, and Supabase Edge Functions.
+A historical artifact search app for reenactors and living historians. It searches eight museum collections at once, ranks the results in a single list, and helps you document a kit: save pieces, check their dates against your portrayal, and print a reference sheet with citations. Built with Next.js, TypeScript, and Supabase Edge Functions.
 
 🔗 **[Live Demo](https://historical-reference.vercel.app)** &nbsp;|&nbsp; No login required, zero tracking
 
@@ -8,42 +8,53 @@ A full-stack historical artifact search app aggregating 1.6M+ items from 4 major
 
 ## ✨ Features
 
-- **Multi-museum search** across 1.6M+ artifacts from 4 institutions in parallel
-- **Advanced filtering** by time period, category, museum source, and image availability
-- **Artifact detail pages** with high-resolution image viewer and full metadata
-- **Collection management** — save favorites, export as JSON or CSV
+- **Multi-museum search** across eight collections in parallel, merged into one ranked list
+- **Search that understands dates**: `15th century sallet`, `frock coat 1860s` and `brooch 900-1066` become a date filter; `"quoted phrases"` and `-exclusions` work too
+- **Reenactment eras** (Viking Age, Wars of the Roses, American Civil War…) and custom year ranges, plus category, museum, image and sort controls
+- **Related searches** from a reenactment vocabulary (helmet → sallet, bascinet, kettle hat…) and typo suggestions
+- **Impressions (kits)**: group saved pieces by portrayal, see which are in period, find kit areas with no evidence yet, and print or export a documentation sheet
+- **Citations** with accession numbers on every artifact, plus your own research notes
+- **Shareable searches**: the search lives in the URL, so results survive the back button and can be sent to your group
+- **Collection management**: save, annotate, export as JSON or CSV, and import a backup
 - **Web scraping** via Firecrawl for museums without public APIs
-- **Dark/light mode** with system preference detection
-- **Fully responsive** — mobile, tablet, and desktop
+- **Dark/light mode**, responsive, print-friendly
 
 ---
 
 ## 🏛️ Museum Collections
 
-| Museum | Collection Size | API Key Required |
-|--------|----------------|-----------------|
-| Metropolitan Museum of Art | 470,000+ artworks | No |
-| Victoria & Albert Museum | 1,000,000+ records | No |
-| Cleveland Museum of Art | 64,000+ artworks | No |
-| Smithsonian Institution | Millions of items | No (DEMO_KEY fallback) |
+| Museum | API key | Notes |
+|--------|---------|-------|
+| Metropolitan Museum of Art | No | Uses the v1.1 search endpoint (v1 was retired on 2026-10-01) |
+| Victoria & Albert Museum | No | |
+| Cleveland Museum of Art | No | |
+| Art Institute of Chicago | No | |
+| Minneapolis Institute of Art | No | |
+| Smithsonian Institution | Recommended | Without `SMITHSONIAN_API_KEY` it uses the shared `DEMO_KEY`, which allows only about 10 requests |
+| Harvard Art Museums | Required | `HARVARD_API_KEY` |
+| Europeana | Required | `EUROPEANA_API_KEY`. Aggregates thousands of European museums, including Portable Antiquities Scheme finds |
+
+All three keys are free. Museums without a key are skipped with a small note instead of an error.
+
+Evaluated but not added: Science Museum Group and Museums Victoria (their firewalls reject server-to-server requests), Portable Antiquities Scheme (same, but its records are available through Europeana), and Rijksmuseum (its new API returns bare IDs that each need a further Linked Art lookup; its collection is also in Europeana).
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Framework:** Next.js 15 (App Router), React 19, TypeScript
+- **Framework:** Next.js 16 (App Router), React 19, TypeScript
 - **Styling:** Tailwind CSS v4 with custom design tokens
-- **Backend:** Supabase Edge Functions (Deno) — API proxying & CORS handling
-- **Storage:** localStorage (no database needed)
+- **Backend:** Supabase Edge Functions (Deno) for API proxying, validation and rate limiting
+- **Storage:** localStorage for the collection and impressions; optional pgvector index for semantic search
 - **Deployment:** Vercel (frontend) + Supabase (edge functions)
-- **Icons:** Lucide React
+- **Tests:** Vitest (`npm test`)
 
 ---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+
+- Node.js 20+
 - A free [Supabase](https://supabase.com) account (for edge functions)
 
 ### 1. Clone & install
@@ -69,10 +80,12 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 npm install -g supabase
 supabase login
 supabase link --project-ref your-project-id
-supabase functions deploy met-museum
-supabase functions deploy va-museum
-supabase functions deploy cleveland-museum
-supabase functions deploy smithsonian
+./deploy-functions.sh        # or deploy-functions.ps1 on Windows
+```
+
+Then add whichever museum keys you have (all optional, all free):
+```bash
+supabase secrets set SMITHSONIAN_API_KEY=... HARVARD_API_KEY=... EUROPEANA_API_KEY=...
 ```
 
 ### 4. Run locally
@@ -89,33 +102,35 @@ Open [http://localhost:3000](http://localhost:3000)
 | Service | Cost | Required For |
 |---------|------|--------------|
 | **Supabase** | Free | Edge functions (search) |
-| **Museum APIs** | Free | Already integrated — no key needed |
-| **Smithsonian** | Free | Optional — falls back to `DEMO_KEY` with rate limits |
+| **Met, V&A, Cleveland, Chicago, Minneapolis** | Free | Nothing to set up |
+| **Smithsonian** (api.data.gov) | Free | Reliable Smithsonian search |
+| **Harvard Art Museums** | Free | Harvard search |
+| **Europeana** | Free | Europeana search |
 | **Firecrawl** | Free tier | Web scraping (optional) |
+
+Museum keys are Supabase secrets read by the edge functions; they are never sent to the browser.
 
 ---
 
 ## 🏗️ Architecture
 
-Search queries fan out in parallel across all selected museums via `Promise.allSettled()`, with each museum's response normalized into a unified `NormalizedArtifact` type before being returned to the UI. Museum-specific API calls are routed through Supabase Edge Functions to handle CORS and enable server-side optimizations.
+```
+Search box ──▶ URL (?q=…&from=…&to=…)            the URL is the search state
+                 │
+                 ▼
+        parse query (dates, "phrases", -exclusions)
+                 │
+                 ▼
+   one Edge Function per museum, in parallel      query rewritten to each museum's
+   (validation, rate limit, timeout, retries)     spelling; filters mapped to its API
+                 │
+                 ▼
+   normalize ──▶ rank across museums ──▶ interleave ──▶ results
+```
 
-```
-User Search
-    │
-    ▼
-useSearch hook
-    │
-    ├──▶ Supabase Edge Fn (Met)       ──▶ Met API
-    ├──▶ Supabase Edge Fn (V&A)       ──▶ V&A API
-    ├──▶ Supabase Edge Fn (Cleveland) ──▶ Cleveland API
-    └──▶ Supabase Edge Fn (Smithsonian) ──▶ Smithsonian API
-                │
-                ▼
-        Normalize to NormalizedArtifact
-                │
-                ▼
-        Unified Results UI
-```
+**Ranking.** Every artifact is scored against the query with a BM25F-style model (title and object type weigh most; plural and US/UK spelling variants match; long words tolerate typos). That is blended with the museum's own ordering, how well the piece's date fits the requested range, optional vector similarity from the pgvector index, and record quality. Museums are then interleaved so one large collection cannot fill the first screen. See `src/lib/search/`.
+
+**Filters.** Each museum has its own vocabulary: the Met filters by department or medium, the V&A by category id, Chicago through an Elasticsearch query, and so on (`src/lib/search/categories.ts`). Anything a museum cannot filter itself is filtered in the browser, so every filter applies to every source.
 
 ---
 

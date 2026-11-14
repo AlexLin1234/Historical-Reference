@@ -8,55 +8,74 @@ import { normalizeTerm } from './lexicon';
  * results are filtered in the browser with CATEGORY_KEYWORDS instead.
  */
 export interface CategoryMapping {
-  met?: { departmentId?: number; medium?: string };
+  /** One or more Met filters; several are searched side by side and merged. */
+  met?: { departmentId?: number; medium?: string }[];
   cleveland?: { type: string };
   harvard?: { classification: string };
   chicago?: { artworkTypes: string[] };
-  va?: { categoryId: string };
+  mia?: { classifications: string[] };
+  /** V&A category thesaurus ids (OR-ed). */
+  va?: { categoryIds: string[] };
 }
 
 export const CATEGORY_MAP: Record<string, CategoryMapping> = {
   'arms-armor': {
-    met: { departmentId: 4 },
+    mia: { classifications: ['Arms and Armor'] },
+    va: { categoryIds: ['THES48992'] },
+    met: [{ departmentId: 4 }],
     cleveland: { type: 'Arms and Armor' },
     harvard: { classification: 'Armor|Weapons and Ammunition' },
     chicago: { artworkTypes: ['Arms', 'Armor'] },
   },
   textiles: {
-    met: { medium: 'Textiles' },
+    mia: { classifications: ['Textiles', 'Clothing', 'Accessories (worn)'] },
+    va: { categoryIds: ['THES48885', 'THES48957', 'THES48975', 'THES48998'] },
+    met: [{ departmentId: 8 }, { medium: 'Textiles' }],
     cleveland: { type: 'Textile' },
     harvard: { classification: 'Textile Arts' },
     chicago: { artworkTypes: ['Textile', 'Costume and Accessories'] },
   },
   ceramics: {
-    met: { medium: 'Ceramics' },
+    mia: { classifications: ['Ceramics'] },
+    va: { categoryIds: ['THES48982'] },
+    met: [{ medium: 'Ceramics' }],
     cleveland: { type: 'Ceramic' },
     chicago: { artworkTypes: ['Ceramics', 'Vessel'] },
   },
   metalwork: {
+    mia: { classifications: ['Metalwork'] },
+    va: { categoryIds: ['THES48920'] },
     cleveland: { type: 'Metalwork' },
     chicago: { artworkTypes: ['Metalwork'] },
   },
   furniture: {
-    met: { medium: 'Furniture' },
+    mia: { classifications: ['Furniture'] },
+    va: { categoryIds: ['THES48948'] },
+    met: [{ medium: 'Furniture' }],
     cleveland: { type: 'Furniture and woodwork' },
     harvard: { classification: 'Furniture' },
     chicago: { artworkTypes: ['Furniture'] },
   },
   paintings: {
-    met: { medium: 'Paintings' },
+    mia: { classifications: ['Paintings'] },
+    va: { categoryIds: ['THES48917'] },
+    met: [{ medium: 'Paintings' }],
     cleveland: { type: 'Painting' },
     harvard: { classification: 'Paintings' },
     chicago: { artworkTypes: ['Painting'] },
   },
   sculpture: {
-    met: { medium: 'Sculpture' },
+    mia: { classifications: ['Sculpture'] },
+    va: { categoryIds: ['THES48896'] },
+    met: [{ medium: 'Sculpture' }],
     cleveland: { type: 'Sculpture' },
     harvard: { classification: 'Sculpture' },
     chicago: { artworkTypes: ['Sculpture'] },
   },
   prints: {
-    met: { departmentId: 9 },
+    mia: { classifications: ['Prints', 'Drawings'] },
+    va: { categoryIds: ['THES48903', 'THES48966'] },
+    met: [{ departmentId: 9 }],
     cleveland: { type: 'Print' },
     harvard: { classification: 'Prints|Drawings' },
     chicago: { artworkTypes: ['Print', 'Drawing and Watercolor'] },

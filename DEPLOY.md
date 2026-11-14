@@ -1,5 +1,7 @@
 # Deploy Edge Functions - Step by Step
 
+> **Note:** the app now has more functions than this guide lists. Run `./deploy-functions.sh` (or `deploy-functions.ps1`) to deploy all of them, and see the README for the optional museum API keys.
+
 ## ✅ Supabase CLI is Already Installed!
 
 The CLI is installed as a dev dependency. Use it with `npx supabase` commands.

@@ -1,7 +1,18 @@
-import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt, fetchUpstream, handleError } from '../_shared/cors.ts';
+import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt, fetchUpstream, handleError, UpstreamError } from '../_shared/cors.ts';
 
 const BASE_URL = 'https://api.si.edu/openaccess/api/v1.0/';
 const API_KEY = Deno.env.get('SMITHSONIAN_API_KEY') || 'DEMO_KEY';
+
+/** Explain the usual cause of a 429: the shared DEMO_KEY allows ~10 requests. */
+function explain(err: unknown): unknown {
+  if (err instanceof UpstreamError && err.status === 429 && API_KEY === 'DEMO_KEY') {
+    return new UpstreamError(
+      'Smithsonian search is over its demo limit. The site owner needs to set a free api.data.gov key (SMITHSONIAN_API_KEY).',
+      429
+    );
+  }
+  return err;
+}
 
 Deno.serve(async (req) => {
   const corsResp = handleCors(req);
@@ -51,6 +62,6 @@ Deno.serve(async (req) => {
 
     return errorResponse('Invalid action. Use "search" or "item".', 400, req);
   } catch (err) {
-    return handleError(err, req);
+    return handleError(explain(err), req);
   }
 });

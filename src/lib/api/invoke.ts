@@ -1,5 +1,11 @@
 import { getSupabase } from '@/lib/supabase';
 
+export class FunctionError extends Error {
+  constructor(message: string, public code?: string) {
+    super(message);
+  }
+}
+
 /**
  * Call one of the app's Supabase Edge Functions and return its `data` payload.
  *
@@ -15,17 +21,19 @@ export async function invokeFunction<T>(
 
   if (error) {
     let message: string | null = null;
+    let code: string | undefined;
     const context = (error as { context?: unknown }).context;
     if (context instanceof Response) {
       if (context.status === 404) message = `the "${name}" function is not deployed`;
       try {
         const payload = await context.clone().json();
         if (payload && typeof payload.error === 'string') message = payload.error;
+        if (payload && typeof payload.code === 'string') code = payload.code;
       } catch {
         // body was not JSON; keep whatever we have
       }
     }
-    throw new Error(message ?? `${label} is unavailable right now`);
+    throw new FunctionError(message ?? `${label} is unavailable right now`, code);
   }
 
   if (!data || data.success === false) {

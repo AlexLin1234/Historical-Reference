@@ -1,5 +1,7 @@
 # Quick Start - TL;DR
 
+> **Note:** the app now has more functions than this guide lists. Run `./deploy-functions.sh` (or `deploy-functions.ps1`) to deploy all of them, and see the README for the optional museum API keys.
+
 ## ⚡ Fastest Way to Run Locally (No API Setup)
 
 ```bash

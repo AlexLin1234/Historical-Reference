@@ -11,6 +11,9 @@ import { searchMet, batchFetchMetObjects } from './met';
 import { searchSmithsonian } from './smithsonian';
 import { searchHarvard } from './harvard';
 import { searchChicago } from './chicago';
+import { searchMia } from './mia';
+import { searchEuropeana } from './europeana';
+import { FunctionError } from './invoke';
 import { vectorSearch } from './vector-search';
 import { normalizeClevelandArtwork } from '@/lib/normalizers/cleveland';
 import { normalizeVASearchRecord } from '@/lib/normalizers/va';
@@ -18,6 +21,8 @@ import { normalizeMetObject } from '@/lib/normalizers/met';
 import { normalizeSmithsonianItem } from '@/lib/normalizers/smithsonian';
 import { normalizeHarvardObject } from '@/lib/normalizers/harvard';
 import { normalizeChicagoArtwork } from '@/lib/normalizers/chicago';
+import { normalizeMiaObject } from '@/lib/normalizers/mia';
+import { normalizeEuropeanaItem } from '@/lib/normalizers/europeana';
 import { DEFAULT_PAGE_SIZE, SEARCH_SOURCES } from '@/lib/constants';
 import { parseQuery } from '@/lib/search/query';
 import { relatedSearches, suggestCorrection, toDialect } from '@/lib/search/lexicon';
@@ -89,7 +94,7 @@ const searchVASource: Searcher = async (q, page, pageSize) => {
     page,
     pageSize,
     hasImage: q.hasImage,
-    categoryId: mapping?.categoryId,
+    categoryIds: mapping?.categoryIds,
     yearFrom: q.dateRange?.startYear,
     yearTo: q.dateRange?.endYear,
   });
@@ -107,27 +112,50 @@ const searchVASource: Searcher = async (q, page, pageSize) => {
 
 const searchMetSource: Searcher = async (q, page, pageSize) => {
   const mapping = q.category ? CATEGORY_MAP[q.category]?.met : undefined;
-  const searchResp = await searchMet({
-    query: q.text,
-    departmentId: mapping?.departmentId,
-    medium: mapping?.medium,
-    dateBegin: q.dateRange?.startYear,
-    dateEnd: q.dateRange?.endYear,
-    hasImages: q.hasImage,
-  });
+  // A category can map to several Met filters (costume is a department,
+  // flat textiles a medium). Each gets a share of the page.
+  const variants = mapping && mapping.length > 0 ? mapping : [{}];
+  const share = Math.ceil(pageSize / variants.length);
 
-  const allIds = searchResp.objectIDs || [];
-  const startIdx = (page - 1) * pageSize;
-  const pageIds = allIds.slice(startIdx, startIdx + pageSize);
+  const searches = await Promise.all(
+    variants.map((variant) =>
+      searchMet({
+        query: q.text,
+        ...variant,
+        dateBegin: q.dateRange?.startYear,
+        dateEnd: q.dateRange?.endYear,
+        hasImages: q.hasImage,
+        offset: (page - 1) * share,
+        limit: share,
+      })
+    )
+  );
+
+  // Interleave the variants' IDs, keeping each one's relevance order.
+  const pageIds: number[] = [];
+  for (let i = 0; i < share; i++) {
+    for (const resp of searches) {
+      const id = resp.objectIDs?.[i];
+      if (id !== undefined && !pageIds.includes(id)) pageIds.push(id);
+    }
+  }
+  // Paging advances every variant together, so the largest sets the length.
+  const total = Math.max(...searches.map((r) => r.total ?? 0)) * variants.length;
   if (pageIds.length === 0) {
-    return { artifacts: [], totalResults: allIds.length, page, pageSize, source: 'met' };
+    return { artifacts: [], totalResults: total, page, pageSize, source: 'met' };
   }
 
-  const objects = await batchFetchMetObjects(pageIds);
-  const artifacts = objects.filter((obj) => obj && obj.objectID).map(normalizeMetObject);
+  // The search returns object IDs only; details are fetched separately.
+  const objects = await batchFetchMetObjects(pageIds.slice(0, 20));
+  // Keep the Met's relevance order (the batch may drop withdrawn records).
+  const byId = new Map(objects.filter((o) => o && o.objectID).map((o) => [o.objectID, o]));
+  const artifacts = pageIds
+    .map((id) => byId.get(id))
+    .filter((o) => o !== undefined)
+    .map(normalizeMetObject);
   return {
     artifacts: clientFilter(artifacts, q, { date: true, category: !!mapping, image: true }),
-    totalResults: allIds.length,
+    totalResults: total,
     page,
     pageSize,
     source: 'met',
@@ -143,7 +171,9 @@ const searchSmithsonianSource: Searcher = async (q, page, pageSize) => {
   });
   const artifacts = (resp.rows || []).map(normalizeSmithsonianItem);
   return {
-    artifacts: clientFilter(artifacts, q, {}),
+    // Records matched on online_media_type often omit the media list from
+    // search results, so the image filter is left to the Smithsonian.
+    artifacts: clientFilter(artifacts, q, { image: true }),
     totalResults: resp.rowCount ?? 0,
     page,
     pageSize,
@@ -192,6 +222,46 @@ const searchChicagoSource: Searcher = async (q, page, pageSize) => {
   };
 };
 
+const searchMiaSource: Searcher = async (q, page, pageSize) => {
+  const mapping = q.category ? CATEGORY_MAP[q.category]?.mia : undefined;
+  const resp = await searchMia({
+    query: q.text,
+    size: pageSize,
+    from: (page - 1) * pageSize,
+    hasImage: q.hasImage,
+    classifications: mapping?.classifications,
+  });
+  const artifacts = (resp.records || []).map(normalizeMiaObject);
+  return {
+    artifacts: clientFilter(artifacts, q, { category: !!mapping }),
+    totalResults: resp.total ?? 0,
+    page,
+    pageSize,
+    source: 'mia',
+  };
+};
+
+const searchEuropeanaSource: Searcher = async (q, page, pageSize) => {
+  // Europeana can only filter CE years; BCE ranges are filtered here instead.
+  const serverDates = !!q.dateRange && q.dateRange.startYear >= 1;
+  const resp = await searchEuropeana({
+    query: q.text,
+    rows: pageSize,
+    start: (page - 1) * pageSize + 1,
+    hasImage: q.hasImage,
+    yearFrom: serverDates ? q.dateRange!.startYear : undefined,
+    yearTo: serverDates ? q.dateRange!.endYear : undefined,
+  });
+  const artifacts = (resp.items || []).map(normalizeEuropeanaItem);
+  return {
+    artifacts: clientFilter(artifacts, q, { date: serverDates, image: true }),
+    totalResults: resp.totalResults ?? 0,
+    page,
+    pageSize,
+    source: 'europeana',
+  };
+};
+
 const SOURCE_SEARCHERS: Partial<Record<MuseumSource, Searcher>> = {
   met: searchMetSource,
   va: searchVASource,
@@ -199,6 +269,8 @@ const SOURCE_SEARCHERS: Partial<Record<MuseumSource, Searcher>> = {
   smithsonian: searchSmithsonianSource,
   harvard: searchHarvardSource,
   chicago: searchChicagoSource,
+  mia: searchMiaSource,
+  europeana: searchEuropeanaSource,
 };
 
 export function registerSourceSearcher(source: MuseumSource, searcher: Searcher) {
@@ -260,7 +332,11 @@ export async function searchAllMuseums(
       );
       return { source, result };
     } catch (err) {
-      return { source, error: (err as Error).message };
+      return {
+        source,
+        error: (err as Error).message,
+        notConfigured: err instanceof FunctionError && err.code === 'not_configured',
+      };
     }
   });
 
@@ -288,10 +364,16 @@ export async function searchAllMuseums(
   ]);
 
   const results: SearchResults[] = [];
-  const errors: { source: MuseumSource; message: string }[] = [];
+  const errors: AggregatedSearchResults['errors'] = [];
   for (const outcome of outcomes) {
     if (outcome.result) results.push(outcome.result);
-    else errors.push({ source: outcome.source, message: outcome.error ?? 'Search failed' });
+    else {
+      errors.push({
+        source: outcome.source,
+        message: outcome.error ?? 'Search failed',
+        notConfigured: outcome.notConfigured,
+      });
+    }
   }
 
   const semantic = new Map<string, number>();

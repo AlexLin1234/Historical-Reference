@@ -28,6 +28,7 @@ export function formatAccessDate(date: Date): string {
  */
 export function buildCitation(artifact: NormalizedArtifact, accessed: Date = new Date()): string {
   const holder =
+    artifact.holder ??
     MUSEUM_CITATIONS[artifact.source] ??
     (artifact.source === 'scraped' ? hostOf(artifact.sourceUrl) : MUSEUM_LABELS[artifact.source]);
 

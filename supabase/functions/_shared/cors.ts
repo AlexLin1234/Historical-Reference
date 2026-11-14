@@ -131,12 +131,36 @@ export class UpstreamError extends Error {
  * Fetch JSON from a museum API with a timeout. Throws UpstreamError on a
  * non-2xx status, a timeout or a non-JSON body, so a failing museum is
  * reported as a failure instead of being passed to the browser as "success".
+ *
+ * `retries` re-attempts transient failures (bot-protection 403s, 5xx, network
+ * errors) after a short pause. A 404 or 429 is never retried.
  */
 export async function fetchUpstream(
   url: string,
   name: string,
   init: RequestInit = {},
-  timeoutMs = 12_000
+  timeoutMs = 12_000,
+  retries = 0
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<any> {
+  let lastError: UpstreamError | null = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 350 * attempt + Math.random() * 250));
+    try {
+      return await fetchOnce(url, name, init, timeoutMs);
+    } catch (err) {
+      lastError = err as UpstreamError;
+      if (lastError.status === 404 || lastError.status === 429) break;
+    }
+  }
+  throw lastError!;
+}
+
+async function fetchOnce(
+  url: string,
+  name: string,
+  init: RequestInit,
+  timeoutMs: number
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
   const controller = new AbortController();
@@ -145,11 +169,20 @@ export async function fetchUpstream(
     const resp = await fetch(url, {
       ...init,
       signal: controller.signal,
-      headers: { Accept: 'application/json', ...(init.headers || {}) },
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'ReenactorsReference/1.0 (museum collection search)',
+        ...(init.headers || {}),
+      },
     });
     if (!resp.ok) {
+      await resp.body?.cancel();
       throw new UpstreamError(
-        resp.status === 404 ? `${name}: record not found` : `${name} API returned ${resp.status}`,
+        resp.status === 404
+          ? `${name}: record not found`
+          : resp.status === 429
+            ? `${name} is rate-limiting requests; try again shortly`
+            : `${name} API returned ${resp.status}`,
         resp.status === 404 ? 404 : resp.status === 429 ? 429 : 502
       );
     }

@@ -55,6 +55,9 @@ export function SearchResults({
   }
 
   const artifacts = results.ranked;
+  // A museum the site owner has not set a key for is a note, not an error.
+  const failures = results.errors.filter((e) => !e.notConfigured);
+  const notSetUp = results.errors.filter((e) => e.notConfigured);
   const { interpretation } = results;
 
   // Each page asks every museum for its own page N, so the number of pages is
@@ -67,13 +70,13 @@ export function SearchResults({
 
   return (
     <div className="space-y-6">
-      {results.errors.length > 0 && (
+      {failures.length > 0 && (
         <div className="space-y-2">
-          {results.errors.map((error) => (
+          {failures.map((error) => (
             <ErrorMessage
               key={error.source}
               message={
-                results.results.length === 0 && results.errors.length === 1
+                results.results.length === 0 && failures.length === 1
                   ? error.message
                   : `${MUSEUM_LABELS[error.source] ?? error.source} could not be searched: ${error.message}`
               }
@@ -180,6 +183,13 @@ export function SearchResults({
             ))}
           </div>
         </div>
+      )}
+
+      {notSetUp.length > 0 && (
+        <p className="text-xs text-steel dark:text-steel-light">
+          Not searched (no API key set on this server):{' '}
+          {notSetUp.map((e) => MUSEUM_LABELS[e.source] ?? e.source).join(', ')}
+        </p>
       )}
 
       {results.results.length > 0 && (

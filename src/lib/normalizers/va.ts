@@ -4,8 +4,14 @@ import { parseYearRange } from '@/lib/dates';
 
 function buildVAImageUrl(iiifBase: string | null, size: 'thumb' | 'full'): string | null {
   if (!iiifBase) return null;
+  iiifBase = iiifBase.replace(/\/+$/, ''); // the API returns a trailing slash
   const dim = size === 'thumb' ? '!400,400' : '!1200,1200';
   return `${iiifBase}/full/${dim}/0/default.jpg`;
+}
+
+/** The V&A records anonymous makers as "Unknown". */
+function knownMaker(name: string | null | undefined): string | null {
+  return name && !/^unknown$/i.test(name.trim()) ? name : null;
 }
 
 function toYear(value: string | null | undefined): number | null {
@@ -42,21 +48,23 @@ export function normalizeVASearchRecord(raw: VASearchRecord): NormalizedArtifact
     dateEarliest: years?.earliest ?? null,
     dateLatest: years?.latest ?? null,
     period: null,
-    culture: null,
     classification: raw.objectType || null,
     objectType: raw.objectType || null,
     medium: null,
     dimensions: null,
-    artist: raw._primaryMaker?.name || null,
+    artist: knownMaker(raw._primaryMaker?.name),
     artistBio: null,
     description: null,
     primaryImage: buildVAImageUrl(raw._images?._iiif_image_base_url, 'full'),
+    // _primary_thumbnail is only 100px; ask the image server for a card-sized one.
     primaryImageSmall:
+      buildVAImageUrl(raw._images?._iiif_image_base_url, 'thumb') ||
       raw._images?._primary_thumbnail ||
-      buildVAImageUrl(raw._images?._iiif_image_base_url, 'thumb'),
+      null,
     additionalImages: [],
     department: null,
     gallery: raw._currentLocation?.displayName || null,
+    culture: raw._primaryPlace || null,
     country: raw._primaryPlace || null,
     region: null,
     creditLine: null,
@@ -89,7 +97,7 @@ export function normalizeVAObject(raw: VAObjectResponse): NormalizedArtifact {
       record.materials?.map((m) => m.text).join(', ') ||
       null,
     dimensions: formatVADimensions(record.dimensions),
-    artist: record.artistMakerPerson?.[0]?.name?.text || null,
+    artist: knownMaker(record.artistMakerPerson?.[0]?.name?.text),
     artistBio: null,
     description:
       [record.summaryDescription, record.physicalDescription]
@@ -98,13 +106,14 @@ export function normalizeVAObject(raw: VAObjectResponse): NormalizedArtifact {
         .join('\n\n') ||
       record.briefDescription ||
       null,
-    primaryImage: meta.images?._iiif_image
-      ? `${meta.images._iiif_image}/full/!1200,1200/0/default.jpg`
-      : null,
-    primaryImageSmall: meta.images?._primary_thumbnail || null,
-    additionalImages: (meta.images?._alt_iiif_image || []).map(
-      (url) => `${url}/full/!800,800/0/default.jpg`
-    ),
+    primaryImage: buildVAImageUrl(meta.images?._iiif_image ?? null, 'full'),
+    primaryImageSmall:
+      buildVAImageUrl(meta.images?._iiif_image ?? null, 'thumb') ||
+      meta.images?._primary_thumbnail ||
+      null,
+    additionalImages: (meta.images?._alt_iiif_image || [])
+      .map((url) => buildVAImageUrl(url, 'full'))
+      .filter((url): url is string => url !== null),
     department: record.categories?.[0]?.text || null,
     gallery: record.galleryLocations?.[0]?.current?.text || null,
     country: record.placesOfOrigin?.[0]?.place?.text || null,

@@ -8,6 +8,8 @@ interface MetSearchParams {
   dateBegin?: number;
   dateEnd?: number;
   hasImages?: boolean;
+  offset?: number;
+  limit?: number;
 }
 
 export async function searchMet(params: MetSearchParams): Promise<MetSearchResponse> {

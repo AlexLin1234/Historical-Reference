@@ -86,9 +86,12 @@ export function normalizeSmithsonianItem(item: SmithsonianItem): NormalizedArtif
   const medium =
     freetextOf(freetext.physicalDescription, /medium|material|physical description/i) ||
     (dimensions ? null : freetextOf(freetext.physicalDescription));
+  // Notes also carry housekeeping entries ("Location: Currently not on view").
   const description =
-    freetextOf(freetext.notes, /description|summary|label|caption/i) ||
-    freetextOf(freetext.notes);
+    freetextOf(freetext.notes, /description|summary|label|caption|history|note/i) ||
+    freetextOf(
+      (freetext.notes || []).filter((n) => !/location|exhibit|view/i.test(n.label || ''))
+    );
 
   return {
     id: `smithsonian-${item.id}`,
@@ -125,6 +128,11 @@ export function normalizeSmithsonianItem(item: SmithsonianItem): NormalizedArtif
       descriptive.record_link || descriptive.guid || `https://www.si.edu/object/${item.id}`,
 
     isPublicDomain: descriptive.metadata_usage?.access === 'CC0',
-    accessionNumber: freetextOf(freetext.identifier, /accession|catalog|id number|object number/i),
+    // Museums cite the ID / catalogue number; the accession number is a fallback.
+    accessionNumber:
+      (freetext.identifier || []).find((i) => /id number|object number|inventory/i.test(i.label || ''))
+        ?.content ||
+      (freetext.identifier || []).find((i) => /catalog|accession/i.test(i.label || ''))?.content ||
+      null,
   };
 }

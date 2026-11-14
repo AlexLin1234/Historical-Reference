@@ -21,6 +21,10 @@ import { normalizeMetObject } from '@/lib/normalizers/met';
 import { normalizeSmithsonianItem } from '@/lib/normalizers/smithsonian';
 import { normalizeHarvardObject } from '@/lib/normalizers/harvard';
 import { normalizeChicagoArtwork } from '@/lib/normalizers/chicago';
+import { getMiaObject } from '@/lib/api/mia';
+import { normalizeMiaObject } from '@/lib/normalizers/mia';
+import { getEuropeanaItem } from '@/lib/api/europeana';
+import { normalizeEuropeanaItem, europeanaRecordId } from '@/lib/normalizers/europeana';
 
 function numericId(id: string): number {
   if (!/^\d+$/.test(id)) throw new Error('Artifact not found');
@@ -37,6 +41,8 @@ const FETCHERS: Partial<Record<MuseumSource, (id: string) => Promise<NormalizedA
     const resp = await getChicagoArtwork(numericId(id));
     return normalizeChicagoArtwork(resp.data, resp.config?.iiif_url);
   },
+  mia: async (id) => normalizeMiaObject(await getMiaObject(numericId(id))),
+  europeana: async (id) => normalizeEuropeanaItem(await getEuropeanaItem(europeanaRecordId(id))),
 };
 
 type Loaded = { key: string; artifact?: NormalizedArtifact; error?: string };

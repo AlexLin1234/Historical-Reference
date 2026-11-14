@@ -6,7 +6,7 @@ interface VASearchParams {
   page?: number;
   pageSize?: number;
   hasImage?: boolean;
-  categoryId?: string;
+  categoryIds?: string[];
   yearFrom?: number;
   yearTo?: number;
 }
