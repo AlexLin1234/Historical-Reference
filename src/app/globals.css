@@ -30,3 +30,27 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+/* Documentation sheets and artifact pages print as plain black on white. */
+@media print {
+  :root,
+  .dark {
+    --background: #ffffff;
+    --foreground: #000000;
+  }
+  body {
+    font-size: 11pt;
+  }
+  /* Dark-mode surfaces would otherwise print as solid dark blocks. */
+  * {
+    background-color: transparent !important;
+    color: #000 !important;
+    box-shadow: none !important;
+  }
+  a {
+    text-decoration: none;
+  }
+  @page {
+    margin: 15mm;
+  }
+}

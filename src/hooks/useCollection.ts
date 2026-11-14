@@ -1,77 +1,38 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import type { NormalizedArtifact } from '@/types/artifact';
-import type { SessionCollection } from '@/types/collection';
+import { useCallback, useSyncExternalStore } from 'react';
 import {
+  EMPTY_COLLECTION,
   getCollection,
+  subscribe,
   saveArtifact,
   removeArtifact,
-  isArtifactSaved,
   clearCollection,
   exportCollectionAsJSON,
   exportCollectionAsCSV,
 } from '@/lib/storage';
 
-function createEmptyCollection(): SessionCollection {
-  return {
-    version: 1,
-    artifacts: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-}
+const getServerSnapshot = () => EMPTY_COLLECTION;
 
+/**
+ * Shared view of the saved collection. Backed by one external store, so every
+ * component (header badge, cards, pages) updates together when anything is
+ * saved or removed, including from another tab.
+ */
 export function useCollection() {
-  const [collection, setCollection] = useState<SessionCollection>(createEmptyCollection);
+  const collection = useSyncExternalStore(subscribe, getCollection, getServerSnapshot);
 
-  const refresh = useCallback(() => {
-    setCollection(getCollection());
-  }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  useEffect(() => {
-    const handler = (e: StorageEvent) => {
-      if (e.key === 'reenactors-reference-collection') {
-        refresh();
-      }
-    };
-    window.addEventListener('storage', handler);
-    return () => window.removeEventListener('storage', handler);
-  }, [refresh]);
-
-  const save = useCallback(
-    (artifact: NormalizedArtifact) => {
-      saveArtifact(artifact);
-      refresh();
-    },
-    [refresh]
+  const isSaved = useCallback(
+    (id: string) => collection.artifacts.some((a) => a.id === id),
+    [collection]
   );
-
-  const remove = useCallback(
-    (id: string) => {
-      removeArtifact(id);
-      refresh();
-    },
-    [refresh]
-  );
-
-  const isSaved = useCallback((id: string) => isArtifactSaved(id), []);
-
-  const clear = useCallback(() => {
-    clearCollection();
-    refresh();
-  }, [refresh]);
 
   return {
     collection,
-    save,
-    remove,
+    save: saveArtifact,
+    remove: removeArtifact,
     isSaved,
-    clear,
+    clear: clearCollection,
     exportJSON: exportCollectionAsJSON,
     exportCSV: exportCollectionAsCSV,
     count: collection.artifacts.length,

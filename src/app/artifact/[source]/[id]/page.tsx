@@ -7,6 +7,8 @@ import type { NormalizedArtifact, MuseumSource } from '@/types/artifact';
 import { ArtifactDetail } from '@/components/artifact/ArtifactDetail';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
+import { useCollection } from '@/hooks/useCollection';
+import { refreshSavedArtifact } from '@/lib/storage';
 import { getClevelandArtwork } from '@/lib/api/cleveland';
 import { getVAObject } from '@/lib/api/va';
 import { getMetObject } from '@/lib/api/met';
@@ -20,75 +22,84 @@ import { normalizeSmithsonianItem } from '@/lib/normalizers/smithsonian';
 import { normalizeHarvardObject } from '@/lib/normalizers/harvard';
 import { normalizeChicagoArtwork } from '@/lib/normalizers/chicago';
 
+function numericId(id: string): number {
+  if (!/^\d+$/.test(id)) throw new Error('Artifact not found');
+  return parseInt(id, 10);
+}
+
+const FETCHERS: Partial<Record<MuseumSource, (id: string) => Promise<NormalizedArtifact>>> = {
+  cleveland: async (id) => normalizeClevelandArtwork(await getClevelandArtwork(id)),
+  va: async (id) => normalizeVAObject(await getVAObject(id)),
+  met: async (id) => normalizeMetObject(await getMetObject(numericId(id))),
+  smithsonian: async (id) => normalizeSmithsonianItem((await getSmithsonianItem(id)).response),
+  harvard: async (id) => normalizeHarvardObject(await getHarvardObject(numericId(id))),
+  chicago: async (id) => {
+    const resp = await getChicagoArtwork(numericId(id));
+    return normalizeChicagoArtwork(resp.data, resp.config?.iiif_url);
+  },
+};
+
+type Loaded = { key: string; artifact?: NormalizedArtifact; error?: string };
+
 export default function ArtifactPage() {
   const params = useParams();
   const router = useRouter();
   const source = params.source as MuseumSource;
-  const id = params.id as string;
+  const id = decodeURIComponent(params.id as string);
+  const key = `${source}/${id}`;
 
-  const [artifact, setArtifact] = useState<NormalizedArtifact | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { collection } = useCollection();
+  // A saved copy shows instantly, works offline, and is the only copy there
+  // is for scraped records.
+  const saved = collection.artifacts.find((a) => a.source === source && a.sourceId === id);
+
+  const [loaded, setLoaded] = useState<Loaded | null>(null);
+  const fetcher = FETCHERS[source];
 
   useEffect(() => {
-    async function fetchArtifact() {
-      setIsLoading(true);
-      setError(null);
+    if (!fetcher) return;
+    let stale = false;
+    fetcher(id)
+      .then((artifact) => {
+        if (stale) return;
+        setLoaded({ key, artifact });
+        refreshSavedArtifact(artifact);
+      })
+      .catch((err: Error) => {
+        if (!stale) setLoaded({ key, error: err.message });
+      });
+    return () => {
+      stale = true;
+    };
+  }, [fetcher, id, key]);
 
-      try {
-        let normalized: NormalizedArtifact;
+  const current = loaded?.key === key ? loaded : null;
+  const artifact = current?.artifact ?? saved ?? null;
+  const error = current?.error ?? (!fetcher && !saved ? 'This record is no longer available.' : null);
+  const isLoading = !artifact && !error;
 
-        if (source === 'cleveland') {
-          const data = await getClevelandArtwork(id);
-          normalized = normalizeClevelandArtwork(data);
-        } else if (source === 'va') {
-          const data = await getVAObject(id);
-          normalized = normalizeVAObject(data);
-        } else if (source === 'met') {
-          const data = await getMetObject(parseInt(id));
-          normalized = normalizeMetObject(data);
-        } else if (source === 'smithsonian') {
-          const data = await getSmithsonianItem(id);
-          normalized = normalizeSmithsonianItem(data.response);
-        } else if (source === 'harvard') {
-          const data = await getHarvardObject(parseInt(id));
-          normalized = normalizeHarvardObject(data);
-        } else if (source === 'chicago') {
-          const resp = await getChicagoArtwork(parseInt(id));
-          normalized = normalizeChicagoArtwork(resp.data, resp.config?.iiif_url);
-        } else {
-          throw new Error('Unsupported source');
-        }
-
-        setArtifact(normalized);
-      } catch (err) {
-        setError((err as Error).message);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchArtifact();
-  }, [source, id]);
+  const back = (
+    <button
+      onClick={() => (window.history.length > 1 ? router.back() : router.push('/'))}
+      className="mb-6 flex items-center gap-2 text-steel hover:text-ink dark:text-steel-light dark:hover:text-parchment print:hidden"
+    >
+      <ArrowLeft size={20} />
+      Back
+    </button>
+  );
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-[60vh] items-center justify-center" role="status" aria-label="Loading">
         <LoadingSpinner size={48} />
       </div>
     );
   }
 
-  if (error || !artifact) {
+  if (!artifact) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-8">
-        <button
-          onClick={() => router.back()}
-          className="mb-4 flex items-center gap-2 text-steel hover:text-ink dark:text-steel-light dark:hover:text-parchment"
-        >
-          <ArrowLeft size={20} />
-          Back to results
-        </button>
+        {back}
         <ErrorMessage message={error || 'Artifact not found'} />
       </div>
     );
@@ -96,15 +107,13 @@ export default function ArtifactPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      <button
-        onClick={() => router.back()}
-        className="mb-6 flex items-center gap-2 text-steel hover:text-ink dark:text-steel-light dark:hover:text-parchment"
-      >
-        <ArrowLeft size={20} />
-        Back to results
-      </button>
-
-      <ArtifactDetail artifact={artifact} />
+      {back}
+      {error && saved && (
+        <div className="mb-6">
+          <ErrorMessage message={`Showing your saved copy. The museum record could not be refreshed: ${error}`} />
+        </div>
+      )}
+      <ArtifactDetail key={artifact.id} artifact={artifact} />
     </div>
   );
 }

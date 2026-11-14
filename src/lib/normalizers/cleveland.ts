@@ -31,5 +31,6 @@ export function normalizeClevelandArtwork(raw: ClevelandArtwork): NormalizedArti
     creditLine: raw.creditline || null,
     sourceUrl: raw.url || `https://www.clevelandart.org/art/${raw.accession_number}`,
     isPublicDomain: raw.share_license_status === 'CC0',
+    accessionNumber: raw.accession_number || null,
   };
 }

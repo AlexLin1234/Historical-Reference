@@ -1,5 +1,6 @@
 import type { VASearchRecord, VAObjectResponse } from '@/types/api';
 import type { NormalizedArtifact } from '@/types/artifact';
+import { parseYearRange } from '@/lib/dates';
 
 function buildVAImageUrl(iiifBase: string | null, size: 'thumb' | 'full'): string | null {
   if (!iiifBase) return null;
@@ -7,15 +8,39 @@ function buildVAImageUrl(iiifBase: string | null, size: 'thumb' | 'full'): strin
   return `${iiifBase}/full/${dim}/0/default.jpg`;
 }
 
+function toYear(value: string | null | undefined): number | null {
+  if (!value) return null;
+  // "1470-01-01", "-0300-01-01" or a bare year
+  const m = /^(-?\d{1,4})/.exec(value.trim());
+  return m ? parseInt(m[1], 10) : null;
+}
+
+/** V&A dimensions arrive as [{dimension, value, unit, qualifier, part}]. */
+function formatVADimensions(dims: unknown): string | null {
+  if (typeof dims === 'string') return dims || null;
+  if (!Array.isArray(dims)) return null;
+  const parts = dims
+    .map((d: Record<string, string>) => {
+      if (!d || !d.value) return null;
+      const label = [d.part, d.dimension].filter(Boolean).join(' ');
+      return `${label ? label + ': ' : ''}${d.value}${d.unit ? ' ' + d.unit : ''}${
+        d.qualifier ? ` (${d.qualifier})` : ''
+      }`;
+    })
+    .filter(Boolean);
+  return parts.length ? parts.join('; ') : null;
+}
+
 export function normalizeVASearchRecord(raw: VASearchRecord): NormalizedArtifact {
+  const years = parseYearRange(raw._primaryDate);
   return {
     id: `va-${raw.systemNumber}`,
     sourceId: raw.systemNumber,
     source: 'va',
-    title: raw._primaryTitle || 'Untitled',
+    title: raw._primaryTitle || raw.objectType || 'Untitled',
     date: raw._primaryDate || '',
-    dateEarliest: null,
-    dateLatest: null,
+    dateEarliest: years?.earliest ?? null,
+    dateLatest: years?.latest ?? null,
     period: null,
     culture: null,
     classification: raw.objectType || null,
@@ -36,7 +61,9 @@ export function normalizeVASearchRecord(raw: VASearchRecord): NormalizedArtifact
     region: null,
     creditLine: null,
     sourceUrl: `https://collections.vam.ac.uk/item/${raw.systemNumber}`,
-    isPublicDomain: true,
+    // V&A images are free for non-commercial use, not public domain.
+    isPublicDomain: false,
+    accessionNumber: raw.accessionNumber || null,
   };
 }
 
@@ -51,8 +78,8 @@ export function normalizeVAObject(raw: VAObjectResponse): NormalizedArtifact {
     source: 'va',
     title: record.titles?.[0]?.title || record.objectType || 'Untitled',
     date: firstDate?.text || '',
-    dateEarliest: firstDate?.earliest ? parseInt(firstDate.earliest) : null,
-    dateLatest: firstDate?.latest ? parseInt(firstDate.latest) : null,
+    dateEarliest: toYear(firstDate?.earliest) ?? parseYearRange(firstDate?.text)?.earliest ?? null,
+    dateLatest: toYear(firstDate?.latest) ?? parseYearRange(firstDate?.text)?.latest ?? null,
     period: null,
     culture: null,
     classification: record.objectType || null,
@@ -61,10 +88,16 @@ export function normalizeVAObject(raw: VAObjectResponse): NormalizedArtifact {
       record.materialsAndTechniques ||
       record.materials?.map((m) => m.text).join(', ') ||
       null,
-    dimensions: typeof record.dimensions === 'string' ? record.dimensions : null,
+    dimensions: formatVADimensions(record.dimensions),
     artist: record.artistMakerPerson?.[0]?.name?.text || null,
     artistBio: null,
-    description: record.briefDescription || record.summaryDescription || null,
+    description:
+      [record.summaryDescription, record.physicalDescription]
+        .filter(Boolean)
+        .map((t) => t.replace(/<[^>]*>/g, ''))
+        .join('\n\n') ||
+      record.briefDescription ||
+      null,
     primaryImage: meta.images?._iiif_image
       ? `${meta.images._iiif_image}/full/!1200,1200/0/default.jpg`
       : null,
@@ -80,6 +113,7 @@ export function normalizeVAObject(raw: VAObjectResponse): NormalizedArtifact {
     sourceUrl:
       meta._links?.collection_page?.href ||
       `https://collections.vam.ac.uk/item/${record.systemNumber}`,
-    isPublicDomain: true,
+    isPublicDomain: false,
+    accessionNumber: record.accessionNumber || null,
   };
 }

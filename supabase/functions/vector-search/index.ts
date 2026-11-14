@@ -78,6 +78,7 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ success: true, results: data ?? [] }, 200, req);
   } catch (err) {
-    return errorResponse(`Server error: ${(err as Error).message}`, 500, req);
+    console.error(err);
+    return errorResponse('Semantic search is unavailable', 500, req);
   }
 });

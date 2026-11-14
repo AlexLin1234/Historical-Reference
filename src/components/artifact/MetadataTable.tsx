@@ -12,20 +12,26 @@ export function MetadataTable({ artifact }: MetadataTableProps) {
     { label: 'Culture', value: artifact.culture },
     { label: 'Period', value: artifact.period },
     { label: 'Classification', value: artifact.classification },
-    { label: 'Object Type', value: artifact.objectType },
+    {
+      label: 'Object Type',
+      value: artifact.objectType !== artifact.classification ? artifact.objectType : null,
+    },
     { label: 'Medium', value: artifact.medium },
     { label: 'Dimensions', value: artifact.dimensions },
     { label: 'Department', value: artifact.department },
     { label: 'Gallery', value: artifact.gallery },
     { label: 'Country', value: artifact.country },
     { label: 'Region', value: artifact.region },
+    { label: 'Accession No.', value: artifact.accessionNumber },
     { label: 'Credit Line', value: artifact.creditLine },
   ].filter((row) => row.value);
+
+  if (rows.length === 0) return null;
 
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold">Details</h2>
-      <div className="divide-y divide-black/10 rounded-lg border border-black/10 dark:divide-white/10 dark:border-white/10">
+      <dl className="divide-y divide-black/10 rounded-lg border border-black/10 dark:divide-white/10 dark:border-white/10">
         {rows.map((row) => (
           <div
             key={row.label}
@@ -34,10 +40,10 @@ export function MetadataTable({ artifact }: MetadataTableProps) {
             <dt className="font-medium text-steel dark:text-steel-light">
               {row.label}
             </dt>
-            <dd className="col-span-2">{row.value}</dd>
+            <dd className="col-span-2 break-words">{row.value}</dd>
           </div>
         ))}
-      </div>
+      </dl>
     </div>
   );
 }

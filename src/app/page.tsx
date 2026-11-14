@@ -1,70 +1,82 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { Suspense, useCallback, useMemo, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { SearchBar } from '@/components/search/SearchBar';
 import { FilterPanel } from '@/components/search/FilterPanel';
 import { SearchResults } from '@/components/search/SearchResults';
 import { useSearch } from '@/hooks/useSearch';
+import { paramsToSearch, searchHref } from '@/lib/search/url';
+import type { SearchFilters } from '@/types/artifact';
 
-export default function Home() {
-  const { filters, setFilters, setQuery, results, isLoading, page, setPage, search } = useSearch();
+function SearchPage() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const queryString = params.toString();
+  const { filters, page } = useMemo(
+    () => paramsToSearch(new URLSearchParams(queryString)),
+    [queryString]
+  );
+  const { results, isLoading, hasQuery, retry } = useSearch(filters, page);
   const resultsRef = useRef<HTMLDivElement>(null);
 
-  const handleSearch = (query: string) => {
-    setQuery(query);
-    search({ query });
-  };
-
-  const handleFilterChange = (newFilters: Parameters<typeof setFilters>[0]) => {
-    setFilters(newFilters);
-    // Re-run search with updated filters if there's already a query
-    if (filters.query.trim()) {
-      search(newFilters);
-    }
-  };
+  // Every change is a navigation: the URL is the search state.
+  const go = useCallback(
+    (update: Partial<SearchFilters>, nextPage = 1) => {
+      router.push(searchHref({ ...filters, ...update }, nextPage), { scroll: false });
+    },
+    [router, filters]
+  );
 
   const handlePageChange = useCallback(
     (newPage: number) => {
-      setPage(newPage);
-      search(undefined, newPage);
-      // Scroll to top of results
+      go({}, newPage);
       resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
-    [setPage, search]
+    [go]
   );
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      {/* Hero Section */}
       <div className="mb-8 text-center">
-        <h1 className="mb-2 text-4xl font-bold tracking-tight">
-          Reenactor&apos;s Reference
-        </h1>
+        <h1 className="mb-2 text-4xl font-bold tracking-tight">Reenactor&apos;s Reference</h1>
         <p className="text-lg text-steel dark:text-steel-light">
           Search historical artifacts across museum collections
         </p>
       </div>
 
-      {/* Search */}
       <div className="mb-6">
-        <SearchBar onSearch={handleSearch} />
+        <SearchBar
+          key={filters.query}
+          initialQuery={filters.query}
+          onSearch={(query) => go({ query, literal: false })}
+        />
       </div>
 
-      {/* Filters */}
       <div className="mb-8">
-        <FilterPanel filters={filters} onFilterChange={handleFilterChange} />
+        <FilterPanel filters={filters} onFilterChange={(update) => go(update)} />
       </div>
 
-      {/* Results */}
-      <div ref={resultsRef}>
+      <div ref={resultsRef} className="scroll-mt-20">
         <SearchResults
           results={results}
+          filters={filters}
           isLoading={isLoading}
+          hasQuery={hasQuery}
           currentPage={page}
           onPageChange={handlePageChange}
-          onRetry={() => search()}
+          onRetry={retry}
+          onSearch={go}
         />
       </div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <SearchPage />
+    </Suspense>
   );
 }

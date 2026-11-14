@@ -22,12 +22,12 @@ export function normalizeChicagoArtwork(
 
     title: item.title ? stripHtml(item.title) : 'Untitled',
     date: item.date_display || '',
-    dateEarliest: item.date_start || null,
-    dateLatest: item.date_end || null,
+    dateEarliest: item.date_start ?? null,
+    dateLatest: item.date_end ?? null,
     period: null,
     culture: item.place_of_origin || null,
     classification: item.classification_title || null,
-    objectType: item.classification_title || null,
+    objectType: item.artwork_type_title || item.classification_title || null,
     medium: item.medium_display || null,
     dimensions: item.dimensions || null,
 
@@ -49,5 +49,6 @@ export function normalizeChicagoArtwork(
     sourceUrl: `https://www.artic.edu/artworks/${item.id}`,
 
     isPublicDomain: item.is_public_domain ?? false,
+    accessionNumber: item.main_reference_number || null,
   };
 }

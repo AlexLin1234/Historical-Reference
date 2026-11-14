@@ -1,4 +1,4 @@
-import { handleCors, jsonResponse, errorResponse, checkRateLimit } from '../_shared/cors.ts';
+import { handleCors, jsonResponse, errorResponse, checkRateLimit, handleError } from '../_shared/cors.ts';
 
 const ALLOWED_DOMAINS = [
   'www.britishmuseum.org',
@@ -16,7 +16,7 @@ function isAllowedUrl(urlStr: string): boolean {
     const parsed = new URL(urlStr);
     if (parsed.protocol !== 'https:') return false;
     return ALLOWED_DOMAINS.some(
-      (d) => parsed.hostname === d || parsed.hostname.endsWith('.' + d)
+      (d) => parsed.hostname === d
     );
   } catch {
     return false;
@@ -33,18 +33,18 @@ Deno.serve(async (req) => {
   try {
     const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
     if (!apiKey) {
-      return errorResponse('FIRECRAWL_API_KEY is not configured', 500);
+      return errorResponse('Web scraping is not set up on this server (missing Firecrawl API key)', 503, req);
     }
 
     const body = await req.json();
-    const { url, formats } = body;
+    const { url } = body;
 
-    if (!url || typeof url !== 'string') {
-      return errorResponse('url is required');
+    if (!url || typeof url !== 'string' || url.length > 2000) {
+      return errorResponse('url is required', 400, req);
     }
 
     if (!isAllowedUrl(url)) {
-      return errorResponse('URL domain is not in the allowed list. Only known museum domains are permitted.');
+      return errorResponse('URL domain is not in the allowed list. Only known museum domains are permitted.', 400, req);
     }
 
     const resp = await fetch('https://api.firecrawl.dev/v2/scrape', {
@@ -55,15 +55,22 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         url,
-        formats: formats ?? ['markdown'],
+        formats: ['markdown'],
         onlyMainContent: true,
         timeout: 30000,
       }),
     });
 
-    const data = await resp.json();
-    return jsonResponse({ success: true, data });
+    const data = await resp.json().catch(() => null);
+    if (!resp.ok || !data || data.success === false) {
+      return errorResponse(
+        `The page could not be scraped${data?.error ? `: ${String(data.error).slice(0, 200)}` : ''}`,
+        502,
+        req
+      );
+    }
+    return jsonResponse({ success: true, data }, 200, req);
   } catch (err) {
-    return errorResponse(`Server error: ${(err as Error).message}`, 500);
+    return handleError(err, req);
   }
 });

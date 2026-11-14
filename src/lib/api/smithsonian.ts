@@ -1,4 +1,5 @@
-import { getSupabase } from '@/lib/supabase';
+import { invokeFunction } from './invoke';
+import type { SmithsonianItem } from '@/lib/normalizers/smithsonian';
 
 interface SmithsonianSearchParams {
   query: string;
@@ -9,63 +10,19 @@ interface SmithsonianSearchParams {
 
 interface SmithsonianSearchResponse {
   rowCount: number;
-  rows: Array<{
-    id: string;
-    title: string;
-    unitCode: string;
-    content?: {
-      descriptiveNonRepeating?: {
-        title?: { content?: string };
-        record_link?: string;
-        guid?: string;
-        metadata_usage?: { access?: string };
-        online_media?: {
-          media?: Array<{
-            thumbnail?: string;
-            content?: string;
-            idsId?: string;
-            type?: string;
-          }>;
-        };
-      };
-      freetext?: {
-        date?: Array<{ content?: string }>;
-        objectType?: Array<{ content?: string }>;
-        physicalDescription?: Array<{ content?: string }>;
-        dataSource?: Array<{ content?: string }>;
-      };
-      indexedStructured?: {
-        date?: string[];
-        object_type?: string[];
-        place?: string[];
-        topic?: string[];
-      };
-    };
-  }>;
+  rows: SmithsonianItem[];
 }
 
 export async function searchSmithsonian(params: SmithsonianSearchParams): Promise<SmithsonianSearchResponse> {
-  const { data, error } = await getSupabase().functions.invoke('smithsonian', {
-    body: {
+  return invokeFunction('smithsonian', {
       action: 'search',
       query: params.query,
       rows: params.rows || 20,
       start: params.start || 0,
       online_media_only: params.online_media_only,
-    },
-  });
-
-  if (error) throw new Error(`Smithsonian search failed: ${error.message}`);
-  if (!data.success) throw new Error(data.error || 'Smithsonian search failed');
-  return data.data;
+    }, 'Smithsonian');
 }
 
-export async function getSmithsonianItem(itemId: string) {
-  const { data, error } = await getSupabase().functions.invoke('smithsonian', {
-    body: { action: 'item', itemId },
-  });
-
-  if (error) throw new Error(`Smithsonian fetch failed: ${error.message}`);
-  if (!data.success) throw new Error(data.error || 'Smithsonian fetch failed');
-  return data.data;
+export async function getSmithsonianItem(itemId: string): Promise<{ response: SmithsonianItem }> {
+  return invokeFunction('smithsonian', { action: 'item', itemId }, 'Smithsonian');
 }

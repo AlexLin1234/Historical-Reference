@@ -1,9 +1,13 @@
-import { getSupabase } from '@/lib/supabase';
+import { invokeFunction } from './invoke';
 
 interface ChicagoSearchParams {
   query: string;
   limit?: number;
   page?: number;
+  hasImage?: boolean;
+  dateFrom?: number;
+  dateTo?: number;
+  artworkTypes?: string[];
 }
 
 export interface ChicagoArtwork {
@@ -24,6 +28,8 @@ export interface ChicagoArtwork {
   description: string | null;
   is_public_domain: boolean;
   api_link: string;
+  main_reference_number?: string | null;
+  artwork_type_title?: string | null;
 }
 
 export interface ChicagoSearchResponse {
@@ -41,26 +47,18 @@ export interface ChicagoSearchResponse {
 }
 
 export async function searchChicago(params: ChicagoSearchParams): Promise<ChicagoSearchResponse> {
-  const { data, error } = await getSupabase().functions.invoke('chicago-museum', {
-    body: {
+  return invokeFunction('chicago-museum', {
       action: 'search',
       query: params.query,
       limit: params.limit || 20,
       page: params.page || 1,
-    },
-  });
-
-  if (error) throw new Error(`Chicago search failed: ${error.message}`);
-  if (!data.success) throw new Error(data.error || 'Chicago search failed');
-  return data.data;
+      hasImage: params.hasImage,
+      dateFrom: params.dateFrom,
+      dateTo: params.dateTo,
+      artworkTypes: params.artworkTypes,
+    }, 'Art Institute of Chicago');
 }
 
 export async function getChicagoArtwork(artworkId: number): Promise<{ data: ChicagoArtwork; config: { iiif_url: string } }> {
-  const { data, error } = await getSupabase().functions.invoke('chicago-museum', {
-    body: { action: 'object', artworkId },
-  });
-
-  if (error) throw new Error(`Chicago fetch failed: ${error.message}`);
-  if (!data.success) throw new Error(data.error || 'Chicago fetch failed');
-  return data.data;
+  return invokeFunction('chicago-museum', { action: 'object', artworkId }, 'Art Institute of Chicago');
 }

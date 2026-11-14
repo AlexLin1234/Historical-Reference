@@ -29,7 +29,7 @@ export function normalizeHarvardObject(item: HarvardObject): NormalizedArtifact 
     artist,
     artistBio,
 
-    description: null,
+    description: item.description || item.labeltext || null,
 
     primaryImage,
     primaryImageSmall: primaryImage,
@@ -44,5 +44,6 @@ export function normalizeHarvardObject(item: HarvardObject): NormalizedArtifact 
     sourceUrl: item.url || `https://harvardartmuseums.org/collections/object/${item.objectid}`,
 
     isPublicDomain: item.imagepermissionlevel === 0,
+    accessionNumber: item.objectnumber || null,
   };
 }

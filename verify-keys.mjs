@@ -1,5 +1,22 @@
-// Quick script to verify your Supabase keys are correct
-require('dotenv').config({ path: '.env.local' });
+// Quick script to verify your Supabase keys are correct.
+// Usage: node verify-keys.mjs
+import { readFileSync } from 'node:fs';
+
+// Minimal .env.local reader (no dependency needed).
+try {
+  for (const line of readFileSync('.env.local', 'utf8').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    const value = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+    if (!(key in process.env)) process.env[key] = value;
+  }
+} catch {
+  console.log('\n\u274c Could not read .env.local (copy .env.example to .env.local first)');
+  process.exit(1);
+}
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -33,9 +50,9 @@ if (!key) {
 }
 
 if (key.startsWith('sb_secret_')) {
-  console.log('❌ NEXT_PUBLIC_SUPABASE_ANON_KEY appears to be wrong format');
-  console.log('   Keys starting with "sb_secret_" are not valid anon keys');
-  console.log('   You need the JWT key that starts with "eyJ"');
+  console.log('❌ NEXT_PUBLIC_SUPABASE_ANON_KEY is a SECRET key');
+  console.log('   Keys starting with "sb_secret_" must never be put in a NEXT_PUBLIC_ variable');
+  console.log('   You need the anon key ("eyJ...") or the publishable key ("sb_publishable_...")');
   console.log('\n📝 How to fix:');
   console.log('   1. Go to https://supabase.com/dashboard');
   console.log('   2. Select your project');
@@ -45,14 +62,16 @@ if (key.startsWith('sb_secret_')) {
   process.exit(1);
 }
 
-if (!key.startsWith('eyJ')) {
+const isPublishable = key.startsWith('sb_publishable_');
+
+if (!key.startsWith('eyJ') && !isPublishable) {
   console.log('⚠️  NEXT_PUBLIC_SUPABASE_ANON_KEY has unexpected format');
   console.log('   Anon keys should start with "eyJ" (JWT format)');
   console.log('   Current value starts with:', key.substring(0, 10) + '...');
   console.log('\n   This might still work, but double-check it\'s the anon key, not service_role');
 }
 
-if (key.length < 100) {
+if (!isPublishable && key.length < 100) {
   console.log('⚠️  NEXT_PUBLIC_SUPABASE_ANON_KEY seems too short');
   console.log('   Anon keys are typically 200+ characters long');
   console.log('   Current length:', key.length);
@@ -71,7 +90,8 @@ fetch(testUrl, {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${key}`
+    'Authorization': `Bearer ${key}`,
+    'apikey': key
   },
   body: testBody
 })

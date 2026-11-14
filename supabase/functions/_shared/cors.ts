@@ -56,6 +56,14 @@ export function checkRateLimit(
     'unknown';
 
   const now = Date.now();
+
+  // Keep the map bounded: drop expired entries once it grows.
+  if (rateLimitMap.size > 5000) {
+    for (const [key, value] of rateLimitMap) {
+      if (now > value.resetAt) rateLimitMap.delete(key);
+    }
+  }
+
   const entry = rateLimitMap.get(ip);
 
   if (!entry || now > entry.resetAt) {
@@ -98,4 +106,73 @@ export function validateInt(
     return errorResponse(`${name} must be an integer between ${min} and ${max}`);
   }
   return num;
+}
+
+/** Optional integer: undefined/null/'' pass through as undefined. */
+export function optionalInt(
+  value: unknown,
+  name: string,
+  min: number,
+  max: number
+): number | undefined | Response {
+  if (value === undefined || value === null || value === '') return undefined;
+  return validateInt(value, name, min, max);
+}
+
+// --- Upstream requests ---
+
+export class UpstreamError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+  }
+}
+
+/**
+ * Fetch JSON from a museum API with a timeout. Throws UpstreamError on a
+ * non-2xx status, a timeout or a non-JSON body, so a failing museum is
+ * reported as a failure instead of being passed to the browser as "success".
+ */
+export async function fetchUpstream(
+  url: string,
+  name: string,
+  init: RequestInit = {},
+  timeoutMs = 12_000
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<any> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, {
+      ...init,
+      signal: controller.signal,
+      headers: { Accept: 'application/json', ...(init.headers || {}) },
+    });
+    if (!resp.ok) {
+      throw new UpstreamError(
+        resp.status === 404 ? `${name}: record not found` : `${name} API returned ${resp.status}`,
+        resp.status === 404 ? 404 : resp.status === 429 ? 429 : 502
+      );
+    }
+    try {
+      return await resp.json();
+    } catch {
+      throw new UpstreamError(`${name} API returned an unreadable response`, 502);
+    }
+  } catch (err) {
+    if (err instanceof UpstreamError) throw err;
+    if ((err as Error).name === 'AbortError') {
+      throw new UpstreamError(`${name} API timed out`, 504);
+    }
+    throw new UpstreamError(`${name} API is unreachable`, 502);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Map any thrown value to a JSON error response without leaking internals. */
+export function handleError(err: unknown, req: Request): Response {
+  if (err instanceof UpstreamError) return errorResponse(err.message, err.status, req);
+  if (err instanceof SyntaxError) return errorResponse('Request body must be valid JSON', 400, req);
+  console.error(err);
+  return errorResponse('Unexpected server error', 500, req);
 }

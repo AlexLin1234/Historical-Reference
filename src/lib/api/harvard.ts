@@ -1,4 +1,4 @@
-import { getSupabase } from '@/lib/supabase';
+import { invokeFunction } from './invoke';
 
 interface HarvardSearchParams {
   query: string;
@@ -38,31 +38,21 @@ export interface HarvardObject {
   url: string;
   creditline: string;
   imagepermissionlevel: number;
+  description?: string | null;
+  labeltext?: string | null;
 }
 
 export async function searchHarvard(params: HarvardSearchParams): Promise<HarvardSearchResponse> {
-  const { data, error } = await getSupabase().functions.invoke('harvard-museum', {
-    body: {
+  return invokeFunction('harvard-museum', {
       action: 'search',
       query: params.query,
       size: params.size || 20,
       page: params.page || 1,
       hasImage: params.hasImage,
       classification: params.classification,
-    },
-  });
-
-  if (error) throw new Error(`Harvard search failed: ${error.message}`);
-  if (!data.success) throw new Error(data.error || 'Harvard search failed');
-  return data.data;
+    }, 'Harvard Art Museums');
 }
 
 export async function getHarvardObject(objectId: number): Promise<HarvardObject> {
-  const { data, error } = await getSupabase().functions.invoke('harvard-museum', {
-    body: { action: 'object', objectId },
-  });
-
-  if (error) throw new Error(`Harvard fetch failed: ${error.message}`);
-  if (!data.success) throw new Error(data.error || 'Harvard fetch failed');
-  return data.data;
+  return invokeFunction('harvard-museum', { action: 'object', objectId }, 'Harvard Art Museums');
 }

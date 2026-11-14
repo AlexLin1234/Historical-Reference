@@ -25,9 +25,9 @@ export function SaveButton({ artifact, variant = 'default' }: SaveButtonProps) {
     return (
       <button
         onClick={handleToggle}
-        className={`flex items-center gap-2 rounded-lg px-4 py-2 font-medium transition-colors ${
+        className={`flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 font-medium transition-colors print:hidden ${
           saved
-            ? 'bg-brass text-white hover:bg-brass-light dark:bg-brass-light dark:hover:bg-brass'
+            ? 'bg-brass text-white hover:bg-brass-light dark:bg-brass-light dark:text-ink dark:hover:bg-brass'
             : 'border border-black/20 bg-white hover:bg-black/5 dark:border-white/20 dark:bg-ink dark:hover:bg-white/5'
         }`}
       >

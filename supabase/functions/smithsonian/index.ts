@@ -1,4 +1,4 @@
-import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt } from '../_shared/cors.ts';
+import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt, fetchUpstream, handleError } from '../_shared/cors.ts';
 
 const BASE_URL = 'https://api.si.edu/openaccess/api/v1.0/';
 const API_KEY = Deno.env.get('SMITHSONIAN_API_KEY') || 'DEMO_KEY';
@@ -7,7 +7,7 @@ Deno.serve(async (req) => {
   const corsResp = handleCors(req);
   if (corsResp) return corsResp;
 
-  const rlResp = checkRateLimit(req, 30);
+  const rlResp = checkRateLimit(req, 60);
   if (rlResp) return rlResp;
 
   try {
@@ -34,11 +34,7 @@ Deno.serve(async (req) => {
         params.set('online_media_type', 'Images');
       }
 
-      const resp = await fetch(`${BASE_URL}search?${params.toString()}`);
-      if (!resp.ok) {
-        return errorResponse(`Smithsonian API error: ${resp.statusText}`, resp.status, req);
-      }
-      const data = await resp.json();
+      const data = await fetchUpstream(`${BASE_URL}search?${params.toString()}`, 'Smithsonian');
       return jsonResponse({ success: true, data: data.response }, 200, req);
     }
 
@@ -46,18 +42,15 @@ Deno.serve(async (req) => {
       const itemId = validateString(body.itemId, 'itemId', 200);
       if (itemId instanceof Response) return itemId;
 
-      const resp = await fetch(
-        `${BASE_URL}content/${encodeURIComponent(itemId)}?api_key=${API_KEY}`
+      const data = await fetchUpstream(
+        `${BASE_URL}content/${encodeURIComponent(itemId)}?api_key=${encodeURIComponent(API_KEY)}`,
+        'Smithsonian'
       );
-      if (!resp.ok) {
-        return errorResponse(`Smithsonian API error: ${resp.statusText}`, resp.status, req);
-      }
-      const data = await resp.json();
       return jsonResponse({ success: true, data }, 200, req);
     }
 
     return errorResponse('Invalid action. Use "search" or "item".', 400, req);
   } catch (err) {
-    return errorResponse(`Server error: ${(err as Error).message}`, 500, req);
+    return handleError(err, req);
   }
 });

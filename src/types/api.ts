@@ -36,6 +36,7 @@ export interface MetObjectResponse {
   creditLine: string;
   GalleryNumber: string;
   linkResource: string;
+  objectURL?: string;
   rightsAndReproduction: string;
   tags: { term: string; AAT_URL: string; Wikidata_URL: string }[] | null;
 }
@@ -105,7 +106,7 @@ export interface VAObjectResponse {
     placesOfOrigin: { place: { text: string }; association: { text: string } }[];
     productionDates: { date: { text: string; earliest: string; latest: string } }[];
     creditLine: string;
-    dimensions: string;
+    dimensions: unknown;
     briefDescription: string;
     images: string[];
     galleryLocations: { current: { text: string } }[];

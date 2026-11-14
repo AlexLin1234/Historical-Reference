@@ -1,4 +1,4 @@
-import { getSupabase } from '@/lib/supabase';
+import { invokeFunction } from './invoke';
 import type { ClevelandSearchResponse, ClevelandArtwork } from '@/types/api';
 
 interface ClevelandSearchParams {
@@ -13,21 +13,10 @@ interface ClevelandSearchParams {
 }
 
 export async function searchCleveland(params: ClevelandSearchParams): Promise<ClevelandSearchResponse> {
-  const { data, error } = await getSupabase().functions.invoke('cleveland-museum', {
-    body: { action: 'search', ...params },
-  });
-
-  if (error) throw new Error(`Cleveland search failed: ${error.message}`);
-  if (!data.success) throw new Error(data.error || 'Cleveland search failed');
-  return data.data;
+  return invokeFunction('cleveland-museum', { action: 'search', ...params }, 'Cleveland Museum');
 }
 
 export async function getClevelandArtwork(artworkId: string): Promise<ClevelandArtwork> {
-  const { data, error } = await getSupabase().functions.invoke('cleveland-museum', {
-    body: { action: 'object', artworkId },
-  });
-
-  if (error) throw new Error(`Cleveland fetch failed: ${error.message}`);
-  if (!data.success) throw new Error(data.error || 'Cleveland fetch failed');
-  return data.data.data;
+  const data = await invokeFunction<{ data: ClevelandArtwork }>('cleveland-museum', { action: 'object', artworkId }, 'Cleveland Museum');
+  return data.data;
 }

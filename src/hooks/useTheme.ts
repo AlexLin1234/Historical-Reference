@@ -1,35 +1,39 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
+
+type Theme = 'light' | 'dark';
+
+const listeners = new Set<() => void>();
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+// The inline script in layout.tsx sets the class before first paint, so the
+// <html> element is the source of truth.
+function getSnapshot(): Theme {
+  return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+}
+
+function getServerSnapshot(): Theme {
+  return 'light';
+}
+
+function apply(theme: Theme) {
+  document.documentElement.classList.toggle('dark', theme === 'dark');
+  try {
+    localStorage.setItem('theme', theme);
+  } catch {
+    // storage unavailable: theme still applies for this page view
+  }
+  for (const listener of listeners) listener();
+}
 
 export function useTheme() {
-  const [theme, setThemeState] = useState<'light' | 'dark'>('light');
-
-  useEffect(() => {
-    const stored = localStorage.getItem('theme');
-    if (stored === 'dark' || stored === 'light') {
-      setThemeState(stored);
-      document.documentElement.classList.toggle('dark', stored === 'dark');
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setThemeState('dark');
-      document.documentElement.classList.add('dark');
-    }
-  }, []);
-
-  const setTheme = useCallback((t: 'light' | 'dark') => {
-    setThemeState(t);
-    localStorage.setItem('theme', t);
-    document.documentElement.classList.toggle('dark', t === 'dark');
-  }, []);
-
-  const toggle = useCallback(() => {
-    setThemeState((prev) => {
-      const next = prev === 'dark' ? 'light' : 'dark';
-      localStorage.setItem('theme', next);
-      document.documentElement.classList.toggle('dark', next === 'dark');
-      return next;
-    });
-  }, []);
-
+  const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const setTheme = useCallback((t: Theme) => apply(t), []);
+  const toggle = useCallback(() => apply(getSnapshot() === 'dark' ? 'light' : 'dark'), []);
   return { theme, setTheme, toggle };
 }

@@ -5,14 +5,12 @@
  * server-side (gte-small model) and performs a pgvector cosine similarity
  * search against pre-indexed artifacts.
  *
- * This replaces the client-side Transformers.js semantic re-ranking:
- *  - No 23 MB WASM model download required
- *  - Results are available on the first search, not as a slow second pass
- *  - Works across the full indexed corpus, not just keyword-matched results
+ * The index is optional: when it is empty or the function is not deployed the
+ * search simply runs on keywords alone.
  */
 
 import { getSupabase } from '@/lib/supabase';
-import type { NormalizedArtifact, MuseumSource, SearchFilters } from '@/types/artifact';
+import type { NormalizedArtifact, MuseumSource } from '@/types/artifact';
 
 /** Shape returned by the match_artifacts RPC (snake_case from Postgres). */
 interface ArtifactRow {
@@ -70,6 +68,11 @@ function rowToArtifact(row: ArtifactRow): NormalizedArtifact {
   };
 }
 
+export interface VectorMatch {
+  artifact: NormalizedArtifact;
+  similarity: number;
+}
+
 export interface VectorSearchOptions {
   query: string;
   limit?: number;
@@ -89,7 +92,7 @@ export interface VectorSearchOptions {
  */
 export async function vectorSearch(
   options: VectorSearchOptions
-): Promise<NormalizedArtifact[]> {
+): Promise<VectorMatch[]> {
   const supabase = getSupabase();
 
   const { data, error } = await supabase.functions.invoke('vector-search', {
@@ -106,26 +109,9 @@ export async function vectorSearch(
   if (error) throw error;
   if (!data?.success) throw new Error(data?.error ?? 'Vector search failed');
 
-  return (data.results as ArtifactRow[]).map(rowToArtifact);
+  return ((data.results ?? []) as ArtifactRow[]).map((row) => ({
+    artifact: rowToArtifact(row),
+    similarity: row.similarity,
+  }));
 }
 
-/**
- * Build VectorSearchOptions from the app's SearchFilters shape.
- */
-export function filtersToVectorOptions(
-  filters: SearchFilters,
-  limit = 20
-): VectorSearchOptions {
-  // If exactly one source is selected, pass it as a filter; otherwise search all
-  const source =
-    filters.sources.length === 1 ? filters.sources[0] : null;
-
-  return {
-    query: filters.query,
-    limit,
-    source,
-    dateFrom: filters.timePeriod?.startYear ?? null,
-    dateTo: filters.timePeriod?.endYear ?? null,
-    hasImage: filters.hasImage,
-  };
-}

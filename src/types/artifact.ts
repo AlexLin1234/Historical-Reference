@@ -1,4 +1,13 @@
-export type MuseumSource = 'met' | 'va' | 'cleveland' | 'smithsonian' | 'harvard' | 'chicago' | 'europeana' | 'rijksmuseum' | 'scraped';
+export type MuseumSource =
+  | 'met'
+  | 'va'
+  | 'cleveland'
+  | 'smithsonian'
+  | 'harvard'
+  | 'chicago'
+  | 'europeana'
+  | 'rijksmuseum'
+  | 'scraped';
 
 export interface NormalizedArtifact {
   id: string;
@@ -34,6 +43,9 @@ export interface NormalizedArtifact {
   sourceUrl: string;
 
   isPublicDomain: boolean;
+
+  /** Museum accession / inventory number, used in citations. */
+  accessionNumber?: string | null;
 }
 
 export interface TimePeriod {
@@ -47,12 +59,17 @@ export interface Category {
   label: string;
 }
 
+export type SortOrder = 'relevance' | 'date-asc' | 'date-desc' | 'title';
+
 export interface SearchFilters {
   query: string;
   timePeriod: TimePeriod | null;
   category: string | null;
   sources: MuseumSource[];
   hasImage: boolean;
+  sort?: SortOrder;
+  /** When true the query is sent as typed: no date extraction from the text. */
+  literal?: boolean;
 }
 
 export interface SearchResults {
@@ -65,6 +82,17 @@ export interface SearchResults {
 
 export interface AggregatedSearchResults {
   results: SearchResults[];
+  /** All artifacts from every source, globally ranked and de-duplicated. */
+  ranked: NormalizedArtifact[];
+  /** How the raw query was interpreted (date extraction, exclusions, ...). */
+  interpretation: {
+    text: string;
+    dateRange: { startYear: number; endYear: number; label: string } | null;
+    dateFromQuery: boolean;
+    excluded: string[];
+  };
+  related: string[];
+  didYouMean: string | null;
   isLoading: boolean;
   errors: { source: MuseumSource; message: string }[];
 }

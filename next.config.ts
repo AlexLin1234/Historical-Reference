@@ -1,44 +1,7 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  turbopack: {
-    resolveAlias: {
-      sharp: { browser: '' },
-      'onnxruntime-node': { browser: '' },
-    },
-  },
-  webpack: (config) => {
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      'sharp$': false,
-      'onnxruntime-node$': false,
-    };
-    return config;
-  },
-  images: {
-    remotePatterns: [
-      // Museum APIs
-      { protocol: 'https', hostname: 'images.metmuseum.org' },
-      { protocol: 'https', hostname: 'framemark.vam.ac.uk' },
-      { protocol: 'https', hostname: 'openaccess-cdn.clevelandart.org' },
-      { protocol: 'https', hostname: '*.iiif.io' },
-      // Scrapable museums
-      { protocol: 'https', hostname: 'collections.louvre.fr' },
-      { protocol: 'https', hostname: 'www.britishmuseum.org' },
-      { protocol: 'https', hostname: 'americanhistory.si.edu' },
-      { protocol: 'https', hostname: 'www.nationalgallery.org.uk' },
-      { protocol: 'https', hostname: 'www.rijksmuseum.nl' },
-      { protocol: 'https', hostname: 'collections.mfa.org' },
-      { protocol: 'https', hostname: 'wallacelive.wallacecollection.org' },
-      { protocol: 'https', hostname: 'collections.royalarmouries.org' },
-      // Smithsonian CDN
-      { protocol: 'https', hostname: '*.si.edu' },
-      // Harvard Art Museums
-      { protocol: 'https', hostname: 'nrs.harvard.edu' },
-      // Art Institute of Chicago (IIIF)
-      { protocol: 'https', hostname: 'www.artic.edu' },
-    ],
-  },
-};
+// Artifact images are rendered with plain <img> tags (see ArtifactImage), so no
+// remote image hosts need to be allow-listed here.
+const nextConfig: NextConfig = {};
 
 export default nextConfig;

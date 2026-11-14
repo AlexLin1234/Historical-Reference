@@ -4,6 +4,8 @@ import type { NormalizedArtifact } from '@/types/artifact';
 import { ImageViewer } from './ImageViewer';
 import { MetadataTable } from './MetadataTable';
 import { SaveButton } from './SaveButton';
+import { CitationBox } from './CitationBox';
+import { KitPanel } from './KitPanel';
 import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { MUSEUM_LABELS } from '@/lib/constants';
@@ -13,63 +15,59 @@ interface ArtifactDetailProps {
 }
 
 export function ArtifactDetail({ artifact }: ArtifactDetailProps) {
+  const safeUrl = /^https?:\/\//i.test(artifact.sourceUrl) ? artifact.sourceUrl : null;
+
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex-1">
           <h1 className="mb-2 text-3xl font-bold">{artifact.title}</h1>
           <div className="flex flex-wrap items-center gap-3">
-            <Badge variant={artifact.source}>
-              {MUSEUM_LABELS[artifact.source]}
-            </Badge>
-            {artifact.isPublicDomain && (
-              <Badge variant="default">Public Domain</Badge>
-            )}
+            <Badge variant={artifact.source}>{MUSEUM_LABELS[artifact.source]}</Badge>
+            {artifact.isPublicDomain && <Badge variant="default">Public Domain</Badge>}
           </div>
         </div>
-        <SaveButton artifact={artifact} />
+        <SaveButton artifact={artifact} variant="large" />
       </div>
 
-      {/* Main Content Grid */}
       <div className="grid gap-8 lg:grid-cols-3">
-        {/* Image - 2 columns */}
         <div className="lg:col-span-2">
           <ImageViewer
-            primaryImage={artifact.primaryImage}
+            primaryImage={artifact.primaryImage || artifact.primaryImageSmall}
             additionalImages={artifact.additionalImages}
             alt={artifact.title}
           />
         </div>
-
-        {/* Metadata - 1 column */}
-        <div>
+        <div className="space-y-6">
           <MetadataTable artifact={artifact} />
+          <KitPanel artifact={artifact} />
         </div>
       </div>
 
-      {/* Description */}
       {artifact.description && (
         <div className="rounded-lg border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-ink">
           <h2 className="mb-3 text-lg font-semibold">Description</h2>
-          <p className="leading-relaxed text-steel dark:text-steel-light">
+          <p className="whitespace-pre-line leading-relaxed text-steel dark:text-steel-light">
             {artifact.description}
           </p>
         </div>
       )}
 
-      {/* View at Museum */}
-      <div className="rounded-lg border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-ink">
-        <a
-          href={artifact.sourceUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 font-medium text-brass hover:text-brass-light dark:text-brass-light dark:hover:text-brass"
-        >
-          View at {MUSEUM_LABELS[artifact.source]}
-          <ExternalLink size={16} />
-        </a>
-      </div>
+      <CitationBox artifact={artifact} />
+
+      {safeUrl && (
+        <div className="rounded-lg border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-ink print:hidden">
+          <a
+            href={safeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 font-medium text-brass hover:text-brass-light dark:text-brass-light dark:hover:text-brass"
+          >
+            View at {MUSEUM_LABELS[artifact.source]}
+            <ExternalLink size={16} />
+          </a>
+        </div>
+      )}
     </div>
   );
 }

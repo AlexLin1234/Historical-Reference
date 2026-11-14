@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
+import { ArtifactImage } from '@/components/artifact/ArtifactImage';
 import { Check } from 'lucide-react';
 import type { NormalizedArtifact } from '@/types/artifact';
 import { useCollection } from '@/hooks/useCollection';
@@ -40,13 +40,11 @@ export function ScrapeResults({ artifact: initialArtifact }: ScrapeResultsProps)
         {artifact.primaryImage && (
           <div className="md:col-span-2">
             <label className="mb-2 block text-sm font-medium">Image</label>
-            <div className="relative aspect-video overflow-hidden rounded-lg bg-steel/10 dark:bg-steel-light/10">
-              <Image
+            <div className="aspect-video overflow-hidden rounded-lg bg-steel/10 dark:bg-steel-light/10">
+              <ArtifactImage
                 src={artifact.primaryImage}
                 alt={artifact.title || 'Scraped artifact'}
-                fill
-                className="object-contain"
-                sizes="(max-width: 768px) 100vw, 50vw"
+                fit="contain"
               />
             </div>
           </div>

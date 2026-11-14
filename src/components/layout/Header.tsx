@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Search, Globe, Bookmark } from 'lucide-react';
+import { Search, Globe, Bookmark, Shirt } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useCollection } from '@/hooks/useCollection';
 
@@ -9,7 +9,7 @@ export function Header() {
   const { count } = useCollection();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-black/10 bg-parchment/80 backdrop-blur-sm dark:border-white/10 dark:bg-ink/80">
+    <header className="sticky top-0 z-40 print:hidden border-b border-black/10 bg-parchment/80 backdrop-blur-sm dark:border-white/10 dark:bg-ink/80">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
           <span className="text-brass">RR</span>
@@ -21,22 +21,29 @@ export function Header() {
             href="/"
             className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/10 dark:hover:bg-white/10"
           >
-            <Search size={16} />
-            <span className="hidden sm:inline">Search</span>
+            <Search size={16} aria-hidden />
+            <span className="sr-only sm:not-sr-only">Search</span>
           </Link>
           <Link
             href="/scrape"
             className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/10 dark:hover:bg-white/10"
           >
-            <Globe size={16} />
-            <span className="hidden sm:inline">Scrape</span>
+            <Globe size={16} aria-hidden />
+            <span className="sr-only sm:not-sr-only">Scrape</span>
+          </Link>
+          <Link
+            href="/kits"
+            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/10 dark:hover:bg-white/10"
+          >
+            <Shirt size={16} aria-hidden />
+            <span className="sr-only sm:not-sr-only">Kits</span>
           </Link>
           <Link
             href="/collection"
             className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/10 dark:hover:bg-white/10"
           >
-            <Bookmark size={16} />
-            <span className="hidden sm:inline">Collection</span>
+            <Bookmark size={16} aria-hidden />
+            <span className="sr-only sm:not-sr-only">Collection</span>
             {count > 0 && (
               <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brass px-1 text-xs font-bold text-white">
                 {count}
