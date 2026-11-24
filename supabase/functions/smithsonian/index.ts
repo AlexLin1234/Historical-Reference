@@ -33,17 +33,16 @@ Deno.serve(async (req) => {
       const start = validateInt(body.start ?? 0, 'start', 0, 100000);
       if (start instanceof Response) return start;
 
-      const { online_media_only } = body;
+      // Filters must be part of the query; a separate online_media_type
+      // parameter is ignored by the API. No parentheses: the API treats
+      // "(a b)" as a OR b, while bare words are AND-ed.
+      const q = body.online_media_only ? `${query} AND online_media_type:"Images"` : query;
       const params = new URLSearchParams({
-        q: query,
+        q,
         rows: String(rows),
         start: String(start),
         api_key: API_KEY,
       });
-
-      if (online_media_only) {
-        params.set('online_media_type', 'Images');
-      }
 
       const data = await fetchUpstream(`${BASE_URL}search?${params.toString()}`, 'Smithsonian');
       return jsonResponse({ success: true, data: data.response }, 200, req);

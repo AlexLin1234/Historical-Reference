@@ -171,9 +171,10 @@ const searchSmithsonianSource: Searcher = async (q, page, pageSize) => {
   });
   const artifacts = (resp.rows || []).map(normalizeSmithsonianItem);
   return {
-    // Records matched on online_media_type often omit the media list from
-    // search results, so the image filter is left to the Smithsonian.
-    artifacts: clientFilter(artifacts, q, { image: true }),
+    // Many records flagged online_media_type:Images carry no image URLs
+    // (National Museum of American History records, as of 2026-11), so the
+    // image filter is also checked here against what was actually returned.
+    artifacts: clientFilter(artifacts, q, {}),
     totalResults: resp.rowCount ?? 0,
     page,
     pageSize,
