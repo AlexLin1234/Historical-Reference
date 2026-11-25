@@ -274,6 +274,25 @@ const SOURCE_SEARCHERS: Partial<Record<MuseumSource, Searcher>> = {
   europeana: searchEuropeanaSource,
 };
 
+/**
+ * Search a single museum, bypassing ranking and the vector index. Used by the
+ * seeding script so stored records are normalized exactly as search shows them.
+ */
+export async function searchOneSource(
+  source: MuseumSource,
+  text: string,
+  page = 1,
+  pageSize = DEFAULT_PAGE_SIZE
+): Promise<SearchResults> {
+  const searcher = SOURCE_SEARCHERS[source];
+  if (!searcher) throw new Error(`No searcher for ${source}`);
+  return searcher(
+    { text: toDialect(text, DIALECTS.get(source) ?? 'us'), dateRange: null, category: null, hasImage: true },
+    page,
+    pageSize
+  );
+}
+
 export function registerSourceSearcher(source: MuseumSource, searcher: Searcher) {
   SOURCE_SEARCHERS[source] = searcher;
 }
@@ -297,7 +316,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T
   });
 }
 
-const SEMANTIC_MIN_SIMILARITY = 0.82;
+// gte-small similarities are compressed: measured on the live index, real
+// matches score 0.87-0.93 and unrelated pieces 0.80-0.84.
+const SEMANTIC_MIN_SIMILARITY = 0.86;
 const SEMANTIC_MAX_EXTRA = 10;
 
 export async function searchAllMuseums(

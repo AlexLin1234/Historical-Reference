@@ -36,6 +36,14 @@ const FIELDS = Object.keys(FIELD_WEIGHTS) as FieldName[];
 
 const K1 = 1.2;
 
+/**
+ * Weight of vector similarity in the final score. Tuned on the live index:
+ * 0.25 left descriptive queries ("medieval head protection") dominated by
+ * partial keyword matches; 0.8 let near-synonyms crowd out the object asked
+ * for ("cloak fastener" returning cloaks). 0.5 balances the two.
+ */
+const SEMANTIC_WEIGHT = 0.5;
+
 interface Doc {
   artifact: NormalizedArtifact;
   tokens: Record<FieldName, string[]>;
@@ -243,8 +251,8 @@ export function scoreArtifacts(
 
     if (semantic && semantic.size > 0) {
       const sim = semantic.get(a.id);
-      // gte-small similarities for related text sit roughly in 0.75–0.95.
-      if (sim !== undefined) score += 0.25 * Math.max(0, Math.min(1, (sim - 0.75) / 0.2));
+      // gte-small similarities: ~0.80-0.84 is noise, 0.87+ a real match.
+      if (sim !== undefined) score += SEMANTIC_WEIGHT * Math.max(0, Math.min(1, (sim - 0.83) / 0.09));
     }
 
     if (range && (a.dateEarliest !== null || a.dateLatest !== null)) {

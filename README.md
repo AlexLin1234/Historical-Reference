@@ -134,6 +134,43 @@ Search box ──▶ URL (?q=…&from=…&to=…)            the URL is the sear
 
 ---
 
+## 🧭 Semantic search (optional)
+
+Keyword search only finds records that use your words. A small vector index adds
+matches by meaning: "medieval head protection" finds kettle hats and a cabacete.
+It lives in your Supabase project and is entirely optional; without it search
+works on keywords alone.
+
+1. **Create the table and search function** (`supabase/migrations/…_vector_search.sql`):
+   ```bash
+   npx supabase db push
+   ```
+2. **Deploy the two functions** (`./deploy-functions.sh` includes them):
+   `vector-search` answers queries and `ingest-artifact` stores records.
+3. **Seed the index.** The script searches every museum for about 75
+   reenactment topics and stores what it finds. It needs a token for
+   `ingest-artifact`: either your service-role key, or a short-lived token you
+   create in the SQL editor so the service-role key never leaves the dashboard:
+   ```sql
+   -- run in the Supabase SQL editor; copy the token it returns
+   with t as (select encode(gen_random_bytes(32), 'hex') as token)
+   insert into public.ingest_tokens (token_hash, note, expires_at)
+   select encode(digest(token, 'sha256'), 'hex'), 'seeding', now() + interval '6 hours' from t
+   returning (select token from t);
+   ```
+   ```bash
+   INGEST_TOKEN=... npx tsx scripts/ingest-artifacts.ts
+   ```
+   Re-running is safe (records are upserted). `INGEST_TOPICS`, `INGEST_SOURCES`
+   and `INGEST_PER_QUERY` narrow or widen a run.
+
+Embeddings use Supabase's built-in `gte-small` model, so there is no external AI
+service or key. Supabase has said this built-in model is being considered for
+deprecation; if that happens, `supabase/functions/_shared/embed.ts` is the one
+place to switch to another embedding API (and the index would need re-seeding).
+
+---
+
 ## 📚 Documentation
 
 - [`QUICKSTART.md`](./QUICKSTART.md) — One-page quick reference

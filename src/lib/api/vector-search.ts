@@ -26,12 +26,15 @@ interface ArtifactRow {
   classification: string | null;
   object_type: string | null;
   medium: string | null;
+  dimensions: string | null;
   description: string | null;
   artist: string | null;
   primary_image: string | null;
   primary_image_small: string | null;
   department: string | null;
   country: string | null;
+  accession_number: string | null;
+  holder: string | null;
   source_url: string;
   is_public_domain: boolean;
   similarity: number;
@@ -51,7 +54,7 @@ function rowToArtifact(row: ArtifactRow): NormalizedArtifact {
     classification: row.classification,
     objectType: row.object_type,
     medium: row.medium,
-    dimensions: null,
+    dimensions: row.dimensions,
     artist: row.artist,
     artistBio: null,
     description: row.description,
@@ -65,6 +68,8 @@ function rowToArtifact(row: ArtifactRow): NormalizedArtifact {
     creditLine: null,
     sourceUrl: row.source_url,
     isPublicDomain: row.is_public_domain,
+    accessionNumber: row.accession_number,
+    holder: row.holder,
   };
 }
 
