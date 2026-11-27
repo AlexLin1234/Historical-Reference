@@ -10,7 +10,7 @@ A historical artifact search app for reenactors and living historians. It search
 
 - **Multi-museum search** across eight collections in parallel, merged into one ranked list
 - **Search that understands dates**: `15th century sallet`, `frock coat 1860s` and `brooch 900-1066` become a date filter; `"quoted phrases"` and `-exclusions` work too
-- **Reenactment eras** (Viking Age, Wars of the Roses, American Civil War…) and custom year ranges, plus category, museum, image and sort controls
+- **Reenactment eras** (Viking Age, Wars of the Roses, American Civil War…) and custom year ranges, plus region, category, museum, image and sort controls
 - **Related searches** from a reenactment vocabulary (helmet → sallet, bascinet, kettle hat…) and typo suggestions
 - **Impressions (kits)**: group saved pieces by portrayal, see which are in period, find kit areas with no evidence yet, and print or export a documentation sheet
 - **Citations** with accession numbers on every artifact, plus your own research notes
@@ -131,6 +131,10 @@ Search box ──▶ URL (?q=…&from=…&to=…)            the URL is the sear
 **Ranking.** Every artifact is scored against the query with a BM25F-style model (title and object type weigh most; plural and US/UK spelling variants match; long words tolerate typos). That is blended with the museum's own ordering, how well the piece's date fits the requested range, optional vector similarity from the pgvector index, and record quality. Museums are then interleaved so one large collection cannot fill the first screen. See `src/lib/search/`.
 
 **Filters.** Each museum has its own vocabulary: the Met filters by department or medium, the V&A by category id, Chicago through an Elasticsearch query, and so on (`src/lib/search/categories.ts`). Anything a museum cannot filter itself is filtered in the browser, so every filter applies to every source.
+
+**Regions.** A region (British Isles, German lands, Italy, Scandinavia…) is a list of countries and cultures (`src/lib/search/regions.ts`), sent to each museum's own place field: Met `geoLocation`, Cleveland `culture`, Harvard `culture:`, Smithsonian `place:`, Chicago `place_of_origin`, Mia `country:`, Europeana `where:`. The V&A has no usable place filter, so the place name joins its query and the place of origin is checked in the browser. Records with no place recorded are kept, since many museums leave the field empty.
+
+**Dates are strict.** With a date range set (from the filter or typed, as in "15th century sallet"), a piece must have a date that overlaps the range, and its date span must not dwarf it: anything spanning more than 150 years, or twice the range, is dropped. Undated pieces are dropped unless the museum itself applied the date filter. Smithsonian (decade tags) and Harvard (`datebegin`/`dateend`) filter dates on the server; Mia cannot, so its pages are filtered in the browser and can come back short.
 
 ---
 

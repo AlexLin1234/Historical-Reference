@@ -1,4 +1,4 @@
-import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt, fetchUpstream, handleError } from '../_shared/cors.ts';
+import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt, optionalInt, fetchUpstream, handleError, placeList } from '../_shared/cors.ts';
 
 const BASE_URL = 'https://api.harvardartmuseums.org/';
 const API_KEY = Deno.env.get('HARVARD_API_KEY') || '';
@@ -31,10 +31,25 @@ Deno.serve(async (req) => {
       if (page instanceof Response) return page;
 
       const { hasImage, classification } = body;
+      const cultures = placeList(body.cultures);
+      const dateFrom = optionalInt(body.dateFrom, 'dateFrom', -10000, 3000);
+      if (dateFrom instanceof Response) return dateFrom;
+      const dateTo = optionalInt(body.dateTo, 'dateTo', -10000, 3000);
+      if (dateTo instanceof Response) return dateTo;
+
+      // Region and date filters join the query (Elasticsearch query-string
+      // syntax). Undated objects carry datebegin 0, so CE ranges exclude them.
+      const clauses: string[] = [];
+      if (cultures.length > 0) {
+        clauses.push(`(${cultures.map((c) => `culture:"${c}"`).join(' OR ')})`);
+      }
+      if (dateFrom !== undefined) clauses.push(`dateend:>=${dateFrom}`);
+      if (dateTo !== undefined) clauses.push(`datebegin:<=${dateTo}`);
+      const q = clauses.length > 0 ? `(${query}) AND ${clauses.join(' AND ')}` : query;
 
       const params = new URLSearchParams({
         apikey: API_KEY,
-        q: query,
+        q,
         size: String(size),
         page: String(page),
         sort: 'rank',

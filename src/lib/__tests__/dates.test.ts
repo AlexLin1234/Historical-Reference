@@ -3,6 +3,8 @@ import { dateFit, extractDateFromQuery, formatYearRange, parseYearRange } from '
 
 describe('parseYearRange', () => {
   const cases: [string, [number, number] | null][] = [
+    ['15th century to 17th century', [1401, 1700]],
+    ['late 15th century to early 16th century', [1467, 1534]],
     ['ca. 1580', [1580, 1580]],
     ['1580–1600', [1580, 1600]],
     ['1580-90', [1580, 1590]],

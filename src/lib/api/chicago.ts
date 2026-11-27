@@ -8,6 +8,8 @@ interface ChicagoSearchParams {
   dateFrom?: number;
   dateTo?: number;
   artworkTypes?: string[];
+  /** Matched against place_of_origin (OR-ed). */
+  places?: string[];
 }
 
 export interface ChicagoArtwork {
@@ -56,6 +58,7 @@ export async function searchChicago(params: ChicagoSearchParams): Promise<Chicag
       dateFrom: params.dateFrom,
       dateTo: params.dateTo,
       artworkTypes: params.artworkTypes,
+      places: params.places,
     }, 'Art Institute of Chicago');
 }
 

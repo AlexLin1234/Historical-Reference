@@ -69,6 +69,8 @@ export interface SearchFilters {
   query: string;
   timePeriod: TimePeriod | null;
   category: string | null;
+  /** Region id from `src/lib/search/regions.ts`. */
+  region?: string | null;
   sources: MuseumSource[];
   hasImage: boolean;
   sort?: SortOrder;

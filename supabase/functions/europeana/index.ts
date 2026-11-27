@@ -1,4 +1,4 @@
-import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt, optionalInt, fetchUpstream, handleError } from '../_shared/cors.ts';
+import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt, optionalInt, fetchUpstream, handleError, placeList } from '../_shared/cors.ts';
 
 // Europeana aggregates thousands of European museums, including finds
 // recorded by the Portable Antiquities Scheme and Scandinavian armouries.
@@ -70,6 +70,10 @@ Deno.serve(async (req) => {
       if (body.hasImage) params.set('thumbnail', 'true');
       const years = yearFilter(yearFrom, yearTo);
       if (years) params.append('qf', years);
+      const places = placeList(body.places);
+      if (places.length > 0) {
+        params.append('qf', `where:(${places.map((p) => `"${p}"`).join(' OR ')})`);
+      }
 
       const data = await fetchUpstream(`${BASE_URL}?${params.toString()}`, NAME);
       if (data?.success === false) return errorResponse(`${NAME} rejected the search`, 502, req);

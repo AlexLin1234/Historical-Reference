@@ -1,4 +1,4 @@
-import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt, fetchUpstream, handleError } from '../_shared/cors.ts';
+import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt, fetchUpstream, handleError, placeList } from '../_shared/cors.ts';
 
 // Minneapolis Institute of Art: open Elasticsearch-backed search, no key.
 const BASE_URL = 'https://search.artsmia.org/';
@@ -47,6 +47,11 @@ Deno.serve(async (req) => {
           .slice(0, 8)
           .map((c: string) => `classification:"${c}"`);
         if (terms.length > 0) clauses.push(`(${terms.join(' OR ')})`);
+      }
+
+      const countries = placeList(body.countries);
+      if (countries.length > 0) {
+        clauses.push(`(${countries.map((c) => `country:"${c}"`).join(' OR ')})`);
       }
 
       const data = await fetchUpstream(

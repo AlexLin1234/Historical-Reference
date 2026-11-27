@@ -123,7 +123,7 @@ export function SearchResults({
           title={totalResults > 0 ? 'Nothing on this page matches your filters' : 'No results found'}
           description={
             totalResults > 0
-              ? 'Try the next page, or loosen the date range or category'
+              ? 'Try the next page, or loosen the date range, category or region'
               : 'Try different words, a wider date range, or one of the related searches below'
           }
         />

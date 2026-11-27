@@ -1,4 +1,4 @@
-import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt, optionalInt, fetchUpstream, handleError } from '../_shared/cors.ts';
+import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt, optionalInt, fetchUpstream, handleError, placeName } from '../_shared/cors.ts';
 
 const BASE_URL = 'https://openaccess-api.clevelandart.org/api/artworks/';
 const NAME = 'Cleveland Museum';
@@ -35,6 +35,9 @@ Deno.serve(async (req) => {
       params.set('skip', String(skip));
       if (type) params.set('type', String(type).slice(0, 200));
       if (department) params.set('department', String(department).slice(0, 200));
+      // Substring match on the culture line, e.g. "Germany, Nuremberg, 16th century".
+      const culture = placeName(body.culture);
+      if (culture) params.set('culture', culture);
       if (createdAfter !== undefined) params.set('created_after', String(createdAfter));
       if (createdBefore !== undefined) params.set('created_before', String(createdBefore));
 

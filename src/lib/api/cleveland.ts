@@ -8,6 +8,7 @@ interface ClevelandSearchParams {
   hasImage?: boolean;
   type?: string;
   department?: string;
+  culture?: string;
   created_after?: number;
   created_before?: number;
 }

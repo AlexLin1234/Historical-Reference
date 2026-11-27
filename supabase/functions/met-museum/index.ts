@@ -1,4 +1,4 @@
-import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt, optionalInt, fetchUpstream, handleError } from '../_shared/cors.ts';
+import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt, optionalInt, fetchUpstream, handleError, placeName } from '../_shared/cors.ts';
 
 const BASE_URL = 'https://collectionapi.metmuseum.org/public/collection/v1/';
 // The v1 search endpoint was retired on 2026-10-01; v1.1 is paginated.
@@ -40,6 +40,9 @@ Deno.serve(async (req) => {
       if (typeof body.medium === 'string' && body.medium) {
         params.set('medium', body.medium.slice(0, 200));
       }
+      // One place, matched against the record's country, region and city.
+      const geoLocation = placeName(body.geoLocation);
+      if (geoLocation) params.set('geoLocation', geoLocation);
       // The API only applies a date filter when both ends are given.
       if (dateBegin !== undefined || dateEnd !== undefined) {
         params.set('dateBegin', String(dateBegin ?? -10000));

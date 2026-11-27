@@ -209,3 +209,25 @@ export function handleError(err: unknown, req: Request): Response {
   console.error(err);
   return errorResponse('Unexpected server error', 500, req);
 }
+
+// --- Place filters ---
+
+const PLACE_NAME = /^\p{L}[\p{L} .'-]{0,59}$/u;
+
+/**
+ * Place or culture names for a region filter. Anything that is not a plain
+ * name (letters, spaces, . ' -) is dropped, so names can be quoted into a
+ * museum's query syntax safely.
+ */
+export function placeList(value: unknown, max = 20): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((v): v is string => typeof v === 'string' && PLACE_NAME.test(v.trim()))
+    .map((v) => v.trim())
+    .slice(0, max);
+}
+
+/** A single place name, or undefined when absent or not a plain name. */
+export function placeName(value: unknown): string | undefined {
+  return placeList([value], 1)[0];
+}

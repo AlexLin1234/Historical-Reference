@@ -38,6 +38,8 @@ interface MiaSearchParams {
   from?: number;
   hasImage?: boolean;
   classifications?: string[];
+  /** Country names (OR-ed). */
+  countries?: string[];
 }
 
 export async function searchMia(params: MiaSearchParams): Promise<MiaSearchResponse> {

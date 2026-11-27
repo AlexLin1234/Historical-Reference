@@ -28,6 +28,8 @@ import { parseQuery } from '@/lib/search/query';
 import { relatedSearches, suggestCorrection, toDialect } from '@/lib/search/lexicon';
 import { rankArtifacts } from '@/lib/search/ranking';
 import { CATEGORY_MAP, matchesCategory } from '@/lib/search/categories';
+import { getRegion, matchesRegion, type Region } from '@/lib/search/regions';
+import { withinRange } from '@/lib/search/dateFilter';
 
 /** What a per-museum searcher receives: filters already interpreted. */
 export interface SourceQuery {
@@ -35,19 +37,46 @@ export interface SourceQuery {
   text: string;
   dateRange: { startYear: number; endYear: number } | null;
   category: string | null;
+  region: Region | null;
   hasImage: boolean;
 }
 
-type Searcher = (q: SourceQuery, page: number, pageSize: number) => Promise<SearchResults>;
+/**
+ * Museums whose API takes one place per request (Met, Cleveland, V&A) search
+ * this many of a region's places side by side and merge the results.
+ */
+const MAX_PLACE_VARIANTS = 3;
 
-/** Keep artifacts whose date overlaps the range. Undated pieces are kept. */
-function withinRange(a: NormalizedArtifact, range: SourceQuery['dateRange']): boolean {
-  if (!range) return true;
-  if (a.dateEarliest === null && a.dateLatest === null) return true;
-  const earliest = a.dateEarliest ?? a.dateLatest!;
-  const latest = a.dateLatest ?? a.dateEarliest!;
-  return latest >= range.startYear && earliest <= range.endYear;
+/** Run one search per key, each for a share of the page, and interleave. */
+async function fanOut<T>(
+  keys: (string | undefined)[],
+  pageSize: number,
+  run: (key: string | undefined, share: number) => Promise<{ items: T[]; total: number }>,
+  idOf: (item: T) => string
+): Promise<{ items: T[]; total: number }> {
+  const share = Math.ceil(pageSize / keys.length);
+  const results = await Promise.all(keys.map((k) => run(k, share)));
+  const items: T[] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < share; i++) {
+    for (const r of results) {
+      const item = r.items[i];
+      if (item === undefined) continue;
+      const id = idOf(item);
+      if (!seen.has(id)) {
+        seen.add(id);
+        items.push(item);
+      }
+    }
+  }
+  return { items, total: results.reduce((sum, r) => sum + r.total, 0) };
 }
+
+function placeKeys(region: Region | null, max = MAX_PLACE_VARIANTS): (string | undefined)[] {
+  return region ? region.places.slice(0, max) : [undefined];
+}
+
+type Searcher = (q: SourceQuery, page: number, pageSize: number) => Promise<SearchResults>;
 
 /**
  * Filters a museum could not apply itself are applied here, so every source
@@ -56,11 +85,18 @@ function withinRange(a: NormalizedArtifact, range: SourceQuery['dateRange']): bo
 function clientFilter(
   artifacts: NormalizedArtifact[],
   q: SourceQuery,
-  applied: { date?: boolean; category?: boolean; image?: boolean }
+  applied: {
+    /** The museum filtered by date: only clear mismatches are dropped. */
+    date?: boolean;
+    category?: boolean;
+    image?: boolean;
+    region?: boolean;
+  }
 ): NormalizedArtifact[] {
   return artifacts.filter(
     (a) =>
-      (applied.date || withinRange(a, q.dateRange)) &&
+      (applied.region || matchesRegion(a, q.region?.id)) &&
+      withinRange(a, q.dateRange, applied.date) &&
       (applied.category || !q.category || matchesCategory(a, q.category)) &&
       (applied.image || !q.hasImage || a.primaryImage !== null || a.primaryImageSmall !== null)
   );
@@ -68,19 +104,29 @@ function clientFilter(
 
 const searchClevelandSource: Searcher = async (q, page, pageSize) => {
   const mapping = q.category ? CATEGORY_MAP[q.category]?.cleveland : undefined;
-  const resp = await searchCleveland({
-    query: q.text,
-    skip: (page - 1) * pageSize,
-    limit: pageSize,
-    hasImage: q.hasImage,
-    type: mapping?.type,
-    created_after: q.dateRange?.startYear,
-    created_before: q.dateRange?.endYear,
-  });
-  const artifacts = (resp.data || []).map(normalizeClevelandArtwork);
+  // Cleveland's `culture` is a substring match on e.g. "Germany, Nuremberg".
+  const resp = await fanOut(
+    placeKeys(q.region),
+    pageSize,
+    async (culture, share) => {
+      const r = await searchCleveland({
+        query: q.text,
+        skip: (page - 1) * share,
+        limit: share,
+        hasImage: q.hasImage,
+        type: mapping?.type,
+        culture,
+        created_after: q.dateRange?.startYear,
+        created_before: q.dateRange?.endYear,
+      });
+      return { items: r.data || [], total: r.info?.total ?? 0 };
+    },
+    (a) => String(a.id)
+  );
+  const artifacts = resp.items.map(normalizeClevelandArtwork);
   return {
-    artifacts: clientFilter(artifacts, q, { date: true, category: !!mapping, image: true }),
-    totalResults: resp.info?.total ?? 0,
+    artifacts: clientFilter(artifacts, q, { date: true, category: !!mapping, image: true, region: true }),
+    totalResults: resp.total,
     page,
     pageSize,
     source: 'cleveland',
@@ -89,21 +135,32 @@ const searchClevelandSource: Searcher = async (q, page, pageSize) => {
 
 const searchVASource: Searcher = async (q, page, pageSize) => {
   const mapping = q.category ? CATEGORY_MAP[q.category]?.va : undefined;
-  const resp = await searchVA({
-    query: q.text,
-    page,
+  // The V&A's place parameter widens a search instead of narrowing it, so the
+  // place name joins the query text (whose words are AND-ed) and the summary's
+  // place of origin is then checked here.
+  const resp = await fanOut(
+    placeKeys(q.region),
     pageSize,
-    hasImage: q.hasImage,
-    categoryIds: mapping?.categoryIds,
-    yearFrom: q.dateRange?.startYear,
-    yearTo: q.dateRange?.endYear,
-  });
-  const artifacts = (resp.records || []).map(normalizeVASearchRecord);
+    async (place, share) => {
+      const r = await searchVA({
+        query: place ? `${q.text} ${place}` : q.text,
+        page,
+        pageSize: share,
+        hasImage: q.hasImage,
+        categoryIds: mapping?.categoryIds,
+        yearFrom: q.dateRange?.startYear,
+        yearTo: q.dateRange?.endYear,
+      });
+      return { items: r.records || [], total: r.info?.record_count ?? 0 };
+    },
+    (r) => r.systemNumber
+  );
+  const artifacts = resp.items.map(normalizeVASearchRecord);
   return {
-    // The V&A applied the date range against the full record; the summary's
-    // date text is too loose to second-guess it.
+    // The V&A applied the date range against the full record, but lets wide
+    // spans through ("1392 - 1910" for a 1455-1487 search); those are dropped.
     artifacts: clientFilter(artifacts, q, { date: true, category: !!mapping, image: true }),
-    totalResults: resp.info?.record_count ?? 0,
+    totalResults: resp.total,
     page,
     pageSize,
     source: 'va',
@@ -114,7 +171,11 @@ const searchMetSource: Searcher = async (q, page, pageSize) => {
   const mapping = q.category ? CATEGORY_MAP[q.category]?.met : undefined;
   // A category can map to several Met filters (costume is a department,
   // flat textiles a medium). Each gets a share of the page.
-  const variants = mapping && mapping.length > 0 ? mapping : [{}];
+  const categoryVariants: { departmentId?: number; medium?: string }[] =
+    mapping && mapping.length > 0 ? mapping : [{}];
+  // `geoLocation` takes a single place; at most four searches run in all.
+  const places = placeKeys(q.region, Math.max(1, Math.floor(4 / categoryVariants.length)));
+  const variants = categoryVariants.flatMap((c) => places.map((geoLocation) => ({ ...c, geoLocation })));
   const share = Math.ceil(pageSize / variants.length);
 
   const searches = await Promise.all(
@@ -154,7 +215,7 @@ const searchMetSource: Searcher = async (q, page, pageSize) => {
     .filter((o) => o !== undefined)
     .map(normalizeMetObject);
   return {
-    artifacts: clientFilter(artifacts, q, { date: true, category: !!mapping, image: true }),
+    artifacts: clientFilter(artifacts, q, { date: true, category: !!mapping, image: true, region: true }),
     totalResults: total,
     page,
     pageSize,
@@ -168,13 +229,17 @@ const searchSmithsonianSource: Searcher = async (q, page, pageSize) => {
     rows: pageSize,
     start: (page - 1) * pageSize,
     online_media_only: q.hasImage,
+    places: q.region?.places,
+    // Sent as decade tags for CE ranges up to 400 years; checked here too.
+    dateFrom: q.dateRange?.startYear,
+    dateTo: q.dateRange?.endYear,
   });
   const artifacts = (resp.rows || []).map(normalizeSmithsonianItem);
   return {
     // Many records flagged online_media_type:Images carry no image URLs
     // (National Museum of American History records, as of 2026-11), so the
     // image filter is also checked here against what was actually returned.
-    artifacts: clientFilter(artifacts, q, {}),
+    artifacts: clientFilter(artifacts, q, { region: !!q.region }),
     totalResults: resp.rowCount ?? 0,
     page,
     pageSize,
@@ -190,10 +255,13 @@ const searchHarvardSource: Searcher = async (q, page, pageSize) => {
     page,
     hasImage: q.hasImage ? true : undefined,
     classification: mapping?.classification,
+    cultures: q.region?.cultures,
+    dateFrom: q.dateRange?.startYear,
+    dateTo: q.dateRange?.endYear,
   });
   const artifacts = (resp.records || []).map(normalizeHarvardObject);
   return {
-    artifacts: clientFilter(artifacts, q, { category: !!mapping }),
+    artifacts: clientFilter(artifacts, q, { date: true, category: !!mapping, region: true }),
     totalResults: resp.info?.totalrecords ?? 0,
     page,
     pageSize,
@@ -211,11 +279,12 @@ const searchChicagoSource: Searcher = async (q, page, pageSize) => {
     dateFrom: q.dateRange?.startYear,
     dateTo: q.dateRange?.endYear,
     artworkTypes: mapping?.artworkTypes,
+    places: q.region ? [...q.region.places, ...(q.region.extra ?? [])] : undefined,
   });
   const iiifUrl = resp.config?.iiif_url || 'https://www.artic.edu/iiif/2';
   const artifacts = (resp.data || []).map((item) => normalizeChicagoArtwork(item, iiifUrl));
   return {
-    artifacts: clientFilter(artifacts, q, { category: !!mapping }),
+    artifacts: clientFilter(artifacts, q, { date: true, category: !!mapping, region: true }),
     totalResults: resp.pagination?.total ?? 0,
     page,
     pageSize,
@@ -231,10 +300,11 @@ const searchMiaSource: Searcher = async (q, page, pageSize) => {
     from: (page - 1) * pageSize,
     hasImage: q.hasImage,
     classifications: mapping?.classifications,
+    countries: q.region?.places,
   });
   const artifacts = (resp.records || []).map(normalizeMiaObject);
   return {
-    artifacts: clientFilter(artifacts, q, { category: !!mapping }),
+    artifacts: clientFilter(artifacts, q, { category: !!mapping, region: true }),
     totalResults: resp.total ?? 0,
     page,
     pageSize,
@@ -252,9 +322,12 @@ const searchEuropeanaSource: Searcher = async (q, page, pageSize) => {
     hasImage: q.hasImage,
     yearFrom: serverDates ? q.dateRange!.startYear : undefined,
     yearTo: serverDates ? q.dateRange!.endYear : undefined,
+    places: q.region?.places,
   });
   const artifacts = (resp.items || []).map(normalizeEuropeanaItem);
   return {
+    // `where:` matches any place on the record (an Etruscan helmet held in
+    // Germany), so the place of origin is checked here as well.
     artifacts: clientFilter(artifacts, q, { date: serverDates, image: true }),
     totalResults: resp.totalResults ?? 0,
     page,
@@ -287,7 +360,7 @@ export async function searchOneSource(
   const searcher = SOURCE_SEARCHERS[source];
   if (!searcher) throw new Error(`No searcher for ${source}`);
   return searcher(
-    { text: toDialect(text, DIALECTS.get(source) ?? 'us'), dateRange: null, category: null, hasImage: true },
+    { text: toDialect(text, DIALECTS.get(source) ?? 'us'), dateRange: null, category: null, region: null, hasImage: true },
     page,
     pageSize
   );
@@ -339,6 +412,7 @@ export async function searchAllMuseums(
     : parsed.dateRange;
 
   const sources = filters.sources.filter((s) => SOURCE_SEARCHERS[s]);
+  const region = getRegion(filters.region);
 
   const keywordSearches = sources.map(async (source) => {
     try {
@@ -347,6 +421,7 @@ export async function searchAllMuseums(
           text: toDialect(parsed.text, DIALECTS.get(source) ?? 'us'),
           dateRange,
           category: filters.category,
+          region,
           hasImage: filters.hasImage,
         },
         page,
@@ -408,7 +483,10 @@ export async function searchAllMuseums(
       !keywordIds.has(match.artifact.id) &&
       match.similarity >= SEMANTIC_MIN_SIMILARITY &&
       semanticOnly.length < SEMANTIC_MAX_EXTRA &&
-      (!filters.category || matchesCategory(match.artifact, filters.category))
+      (!filters.category || matchesCategory(match.artifact, filters.category)) &&
+      // Extra semantic matches must show they are from the region.
+      matchesRegion(match.artifact, region?.id, false) &&
+      withinRange(match.artifact, dateRange)
     ) {
       semanticOnly.push(match.artifact);
     }

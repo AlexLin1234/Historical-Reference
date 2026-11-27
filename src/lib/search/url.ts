@@ -1,6 +1,7 @@
 import type { MuseumSource, SearchFilters, SortOrder, TimePeriod } from '@/types/artifact';
 import { REENACTMENT_ERAS, SEARCH_SOURCE_IDS, TIME_PERIODS } from '@/lib/constants';
 import { formatYearRange } from '@/lib/dates';
+import { getRegion } from './regions';
 
 /**
  * Search state lives in the URL so that results survive the browser's back
@@ -44,6 +45,7 @@ export function paramsToSearch(params: URLSearchParams): { filters: SearchFilter
       query: (params.get('q') || '').slice(0, 300),
       timePeriod,
       category: params.get('cat') || null,
+      region: getRegion(params.get('region'))?.id ?? null,
       sources,
       hasImage: params.get('img') !== '0',
       sort: sort && SORTS.includes(sort) ? sort : 'relevance',
@@ -61,6 +63,7 @@ export function searchToParams(filters: SearchFilters, page = 1): string {
     params.set('to', String(filters.timePeriod.endYear));
   }
   if (filters.category) params.set('cat', filters.category);
+  if (filters.region) params.set('region', filters.region);
   const all =
     filters.sources.length === SEARCH_SOURCE_IDS.length &&
     SEARCH_SOURCE_IDS.every((s) => filters.sources.includes(s));
