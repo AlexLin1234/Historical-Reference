@@ -153,7 +153,22 @@ function findDateExpression(text: string, strict: boolean): Match | null {
 /** Parse a museum date string into a year range, or null when not understood. */
 export function parseYearRange(text: string | null | undefined): YearRange | null {
   if (!text) return null;
-  return findDateExpression(text, false)?.range ?? null;
+  const first = findDateExpression(text, false);
+  if (!first) return null;
+  // "15th century to 17th century", "late 15th century - early 16th century":
+  // a second date joined by "to" or a dash extends the range.
+  const rest = text.slice(first.index + first.length);
+  const joiner = /^\s*(?:to|until|[-–—])\s*/i.exec(rest);
+  if (joiner) {
+    const second = findDateExpression(rest.slice(joiner[0].length), false);
+    if (second && second.index === 0) {
+      return {
+        earliest: Math.min(first.range.earliest, second.range.earliest),
+        latest: Math.max(first.range.latest, second.range.latest),
+      };
+    }
+  }
+  return first.range;
 }
 
 export interface ExtractedDate {

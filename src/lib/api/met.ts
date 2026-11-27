@@ -5,6 +5,8 @@ interface MetSearchParams {
   query: string;
   departmentId?: number;
   medium?: string;
+  /** One place name, matched against country, region and city. */
+  geoLocation?: string;
   dateBegin?: number;
   dateEnd?: number;
   hasImages?: boolean;

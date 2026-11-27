@@ -37,6 +37,8 @@ interface EuropeanaSearchParams {
   hasImage?: boolean;
   yearFrom?: number;
   yearTo?: number;
+  /** Place names (OR-ed). */
+  places?: string[];
 }
 
 export async function searchEuropeana(params: EuropeanaSearchParams): Promise<EuropeanaSearchResponse> {

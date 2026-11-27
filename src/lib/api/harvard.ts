@@ -6,6 +6,10 @@ interface HarvardSearchParams {
   page?: number;
   hasImage?: boolean;
   classification?: string;
+  /** Culture names (OR-ed). */
+  cultures?: string[];
+  dateFrom?: number;
+  dateTo?: number;
 }
 
 export interface HarvardSearchResponse {
@@ -50,6 +54,9 @@ export async function searchHarvard(params: HarvardSearchParams): Promise<Harvar
       page: params.page || 1,
       hasImage: params.hasImage,
       classification: params.classification,
+      cultures: params.cultures,
+      dateFrom: params.dateFrom,
+      dateTo: params.dateTo,
     }, 'Harvard Art Museums');
 }
 

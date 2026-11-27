@@ -1,4 +1,4 @@
-import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt, optionalInt, fetchUpstream, handleError } from '../_shared/cors.ts';
+import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt, optionalInt, fetchUpstream, handleError, placeList } from '../_shared/cors.ts';
 
 const BASE_URL = 'https://api.artic.edu/api/v1/artworks';
 const NAME = 'Art Institute of Chicago';
@@ -48,6 +48,16 @@ Deno.serve(async (req) => {
         filter.push({
           bool: {
             should: types.map((t: string) => ({ match_phrase: { artwork_type_title: t } })),
+            minimum_should_match: 1,
+          },
+        });
+      }
+
+      const places = placeList(body.places, 30);
+      if (places.length > 0) {
+        filter.push({
+          bool: {
+            should: places.map((p) => ({ match_phrase: { place_of_origin: p } })),
             minimum_should_match: 1,
           },
         });

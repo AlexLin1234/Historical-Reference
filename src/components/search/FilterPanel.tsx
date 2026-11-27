@@ -10,6 +10,7 @@ import {
   SEARCH_SOURCE_IDS,
 } from '@/lib/constants';
 import { periodFor } from '@/lib/search/url';
+import { REGIONS } from '@/lib/search/regions';
 import type { SearchFilters, MuseumSource, SortOrder } from '@/types/artifact';
 
 interface FilterPanelProps {
@@ -164,6 +165,23 @@ export function FilterPanel({ filters, onFilterChange }: FilterPanelProps) {
             {CATEGORIES.map((cat) => (
               <option key={cat.value} value={cat.value}>
                 {cat.label}
+              </option>
+            ))}
+          </select>
+
+          <label htmlFor="filter-region" className={`${labelClass} mt-3`}>
+            Region
+          </label>
+          <select
+            id="filter-region"
+            value={filters.region || ''}
+            onChange={(e) => onFilterChange({ region: e.target.value || null })}
+            className={fieldClass}
+          >
+            <option value="">All regions</option>
+            {REGIONS.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.label}
               </option>
             ))}
           </select>

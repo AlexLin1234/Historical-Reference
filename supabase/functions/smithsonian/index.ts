@@ -1,7 +1,22 @@
-import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt, fetchUpstream, handleError, UpstreamError } from '../_shared/cors.ts';
+import { handleCors, jsonResponse, errorResponse, checkRateLimit, validateString, validateInt, optionalInt, fetchUpstream, handleError, UpstreamError, placeList } from '../_shared/cors.ts';
 
 const BASE_URL = 'https://api.si.edu/openaccess/api/v1.0/';
 const API_KEY = Deno.env.get('SMITHSONIAN_API_KEY') || 'DEMO_KEY';
+
+/**
+ * The index tags records with decades ("1860s"). A date range becomes an OR of
+ * its decades: CE years from 1000 only (earlier labels are ambiguous) and at
+ * most 40 decades; wider or earlier ranges are filtered by the app instead.
+ */
+function decadeFacets(from: number | undefined, to: number | undefined): string[] {
+  if (from === undefined || to === undefined || from < 1000 || to < from) return [];
+  const first = Math.floor(from / 10) * 10;
+  const last = Math.floor(Math.min(to, 2099) / 10) * 10;
+  if ((last - first) / 10 + 1 > 40) return [];
+  const out: string[] = [];
+  for (let d = first; d <= last; d += 10) out.push(`${d}s`);
+  return out;
+}
 
 /** Explain the usual cause of a 429: the shared DEMO_KEY allows ~10 requests. */
 function explain(err: unknown): unknown {
@@ -36,7 +51,17 @@ Deno.serve(async (req) => {
       // Filters must be part of the query; a separate online_media_type
       // parameter is ignored by the API. No parentheses: the API treats
       // "(a b)" as a OR b, while bare words are AND-ed.
-      const q = body.online_media_only ? `${query} AND online_media_type:"Images"` : query;
+      let q = body.online_media_only ? `${query} AND online_media_type:"Images"` : query;
+      // A parenthesised list is OR-ed, which is what a region needs.
+      const places = placeList(body.places);
+      if (places.length > 0) q += ` AND (${places.map((p) => `place:"${p}"`).join(' OR ')})`;
+      const dateFrom = optionalInt(body.dateFrom, 'dateFrom', -10000, 3000);
+      if (dateFrom instanceof Response) return dateFrom;
+      const dateTo = optionalInt(body.dateTo, 'dateTo', -10000, 3000);
+      if (dateTo instanceof Response) return dateTo;
+      const decades = decadeFacets(dateFrom, dateTo);
+      if (decades.length > 0) q += ` AND (${decades.map((d) => `date:"${d}"`).join(' OR ')})`;
+
       const params = new URLSearchParams({
         q,
         rows: String(rows),

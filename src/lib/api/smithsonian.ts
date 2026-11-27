@@ -6,6 +6,10 @@ interface SmithsonianSearchParams {
   rows?: number;
   start?: number;
   online_media_only?: boolean;
+  /** Place names (OR-ed). */
+  places?: string[];
+  dateFrom?: number;
+  dateTo?: number;
 }
 
 interface SmithsonianSearchResponse {
@@ -20,6 +24,9 @@ export async function searchSmithsonian(params: SmithsonianSearchParams): Promis
       rows: params.rows || 20,
       start: params.start || 0,
       online_media_only: params.online_media_only,
+      places: params.places,
+      dateFrom: params.dateFrom,
+      dateTo: params.dateTo,
     }, 'Smithsonian');
 }
 
